@@ -31,13 +31,9 @@
 3. [Competitive Landscape & AI Limitations](#-competitive-landscape--ai-limitations)  
 4. [Literature Review (Starter List)](#-literature-review-starter-list)  
 5. [Initial Concept and Value Proposition](#-initial-concept-and-value-proposition)  
-6. [Architecture Overview](#-architecture-overview)  
-7. [Frontend & Backend Quickstart](#-frontend--backend-quickstart)  
-8. [Parent Dashboard (What it shows)](#-parent-dashboard-what-it-shows)  
-9. [Milestones & Roles](#-milestones--roles)  
-10. [Repository Layout](#-repository-layout)  
-11. [Contributions](#-contributions)  
-12. [License](#-license)
+6. [Workflow Overview](#-Workflow-Overview)  
+7. [Architecture Overview](#-architecture-overview)  
+8. [License](#-license)
 
 ---
 
@@ -184,3 +180,13 @@ Both paths leverage the RAG (Retrieval-Augmented Generation) pipeline for accura
 - `Attempt(student_id, item_id, selected, is_correct, ts)`  
 - `QuizItem(id, topic, grade, skill_tag, choices{A..D}, correct)`  
 - `SessionLog(student_id, minutes, date)`
+
+## 📝 License
+
+Distributed under the **Apache 2.0** License. 
+
+<div align="right">
+
+[⬆️ Back to top](#readme-top)
+
+</div>
