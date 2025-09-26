@@ -76,8 +76,7 @@ EduMate builds on a **multi-agent + RAG workflow**, specifically designed for **
 Below is the **EduMate workflow overview**:
 
 ![EduMate Workflow](../flowchart.png)
-
-(*Replace with actual screenshot once finalized*)  
+  
 
 ---
 
