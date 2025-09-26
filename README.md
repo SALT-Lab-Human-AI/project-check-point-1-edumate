@@ -32,7 +32,7 @@
 4. [Literature Review (Starter List)](#-literature-review-starter-list)  
 5. [Initial Concept and Value Proposition](#-initial-concept-and-value-proposition)  
 6. [Workflow Overview](#-Workflow-Overview)  
-7. [Architecture Overview](#-architecture-overview)  
+7. [Architecture Overview](#-Architecture-Overview)  
 8. [License](#-license)
 
 ---
