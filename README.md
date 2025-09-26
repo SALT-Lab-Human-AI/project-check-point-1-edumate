@@ -58,12 +58,14 @@ Students need **instant, reliable, grade-level help** outside class. Generic cha
 ---
 
 ## 🏁 Competitive Landscape & AI Limitations
-- **Khan Academy / Khanmigo** – great pedagogy, limited custom RAG sources and parent analytics.  
-- **ChatGPT / Gemini** – flexible but **ungrounded**; not grade-tuned; no per-skill reporting.  
-- **Photomath / Socratic** – solid steps, **not** a full tutor with mastery tracking.  
-- **Perplexity** – citations ≠ tutoring; lacks student model and practice loop.
 
-**EduMate’s edge**: retrieval-grounded answers, grade-aware explanations, **auto-graded quizzes**, and a **Parent Dashboard** that converts activity into insight and action.
+| Platform                  | Strengths                               | Limitations                                                                 |
+|----------------------------|-----------------------------------------|------------------------------------------------------------------------------|
+| **Khan Academy / Khanmigo** | Great pedagogy                         | Limited custom RAG sources and parent analytics                              |
+| **ChatGPT / Gemini**       | Flexible                                | Ungrounded; not grade-tuned; no per-skill reporting                          |
+| **Photomath / Socratic**   | Solid step-by-step solutions            | Not a full tutor with mastery tracking                                       |
+| **Perplexity**             | Provides citations                      | Citations ≠ tutoring; lacks student model and practice loop                  |
+| **EduMate’s Edge**         | Retrieval-grounded answers, grade-aware explanations, auto-graded quizzes, Parent Dashboard | Converts activity into insight and action |
 
 ---
 
