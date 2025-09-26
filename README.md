@@ -3,7 +3,7 @@
 <a name="readme-top"></a>
 
 <!-- Project banner -->
-<img width="220" alt="EduMate Logo" src="./additional_items/logo.png">
+<img width="220" alt="EduMate Logo" src=".logo.png">
 
 # ✨ **EduMate**
 
@@ -85,12 +85,81 @@ Students need **instant, reliable, grade-level help** outside class. Generic cha
 ---
 
 ## 🚀 Initial Concept and Value Proposition
-- **Tutor Bot** – Grade-aware, Socratic hints, LaTeX math, grounded in **ChromaDB** content to minimize hallucinations.  
-- **Quiz Generator** – Topic/grade/difficulty → A–D items with **one correct answer** + **explanations**; `/quiz/grade` auto-scores.  
-- **Parent Dashboard** – Accuracy over time, **by-skill heatmap**, **time-on-task**, “Generate Recommended Quiz” button.  
-- **Orchestrator** – Routes Tutor vs Quiz; handles retrieval failures with safe fallbacks.
 
-**Value**: real personalization at scale, measurable progress, and trustworthy answers.
+EduMate is a next-generation AI-driven tutoring platform designed to bridge the growing gap in K–12 education by combining Retrieval-Augmented Generation (RAG), multi-agent orchestration, and student progress tracking. Unlike generic AI assistants that provide quick answers, EduMate is built around pedagogical depth: guiding students through concepts, verifying correctness, and ensuring lasting comprehension.
+
+At its heart lies an Orchestrator Agent that dynamically routes user input into two learning pathways:
+
+**Tutor Bot** – Interactive, conversational help where students can ask questions and receive step-by-step Socratic guidance.
+
+**Quiz Module** – Automatically generated, adaptive quizzes tailored to the student’s grade level, difficulty preferences, and learning history.
+
+Both pathways feed into a RAG pipeline that ensures reliable, curriculum-aligned answers by combining large language models (LLMs) with a structured K–12 knowledge base stored in ChromaDB.
+
+### 🔑 Key Value Propositions:
+1. **Personalized AI Tutoring**  
+   - Uses retrieval from **K–12 ChromaDB knowledge base**.  
+   - Answers are step-based, with explanations instead of shortcuts.  
+
+2. **Integrated Quiz System**  
+   - Dynamically generates quizzes by grade, topic, and difficulty.  
+   - Auto-grades responses and provides detailed explanations.  
+
+3. **Parent & Educator Dashboards**  
+   - Tracks progress, highlights strengths/weaknesses.  
+   - Builds trust that EduMate is *teaching*, not *cheating*.  
+
+4. **Answer Quality Assurance**  
+   - All outputs undergo quality checks (accuracy, grade alignment).  
+   - Incorrect answers trigger corrective hints and re-learning loops.  
+
+---
+
+## 📊 Workflow Overview  
+
+### 📌 Architecture Screenshot
+*(Attach your flowchart as PNG)*  
+
+```markdown
+![EduMate System Flow](.flowchart.png)
+
+The EduMate architecture follows a structured Orchestrated + RAG-enabled pipeline designed to support tutoring and quiz-based learning:
+
+## User Input
+A student, parent, or staff member interacts with the system (e.g., asks a question, requests a quiz).
+
+## Orchestrator
+The Orchestrator agent classifies the task:
+
+- If it’s a help request or question, it routes to the Tutor Bot.  
+- If it’s a quiz request or answer submission, it routes to the Quiz Module.
+
+## RAG Pipeline
+Both paths leverage the RAG (Retrieval-Augmented Generation) pipeline for accuracy.
+
+**Steps inside RAG:**
+- **Embedding:** The query is embedded into vector form.  
+- **ChromaDB Retrieval:** Relevant K–12 content (JSONL knowledge base) is fetched.  
+- **LLM Processing:** An LLM uses the retrieved context to draft an answer.  
+- **Answer Quality Checks:** The output is verified for factual correctness, grade-level suitability, and clarity.  
+
+## Tutor Bot Path
+- Provides step-by-step guidance, explanations, and hints instead of direct answers.  
+- Uses LLM reinforcement for improving weak or unclear answers.  
+
+## Quiz Path
+- **Quiz Generation:** Creates adaptive questions based on topic, grade, and difficulty.  
+- **Quiz Grader:** Evaluates student submissions, highlights correct/incorrect answers, and provides detailed explanations.  
+
+## Feedback & Learning Loop
+- **Correct answers** → reinforce progress and update student profile.  
+- **Incorrect answers** → trigger corrective hints and explanations.  
+- Parent/educator dashboards display weekly progress reports, quiz outcomes, and learning trends.  
+
+## Output
+- Students receive answers, quizzes, or reports.  
+- Parents receive progress dashboards.  
+- Educators receive tracking and grading support.  
 
 ---
 
