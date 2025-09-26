@@ -69,16 +69,16 @@ Students need **instant, reliable, grade-level help** outside class. Generic cha
 
 ---
 
-## 📚 Literature Review (Starter List)
-> Full PDFs + BibTeX will live in `/literature`.  
-> Add your reflections to `/reflections/lastname_firstname.md`.
+## 📚 Literature Review
 
-- Agentic tutoring & memory-augmented LLMs  
-- RAG for educational QA; hallucination reduction  
-- Automated question generation and rubric-based grading  
-- Learning analytics for mastery and time-on-task
-
-*(Replace this list with your 8+ paper set; include APA/BibTeX.)*
+- Effective learning with a personal AI tutor: A case study
+- ARTIFICIAL INTELLIGENCE (AI) IN EDUCATION: USING AI TOOLS FOR TEACHING AND LEARNING PROCESS
+- Designing an AI driven intelligent Tutorial System
+- Tutor CoPilot: A Human-AI Approach for Scaling Real-Time Expertise
+- Intelligent Tutoring Systems Powered by Generative AI: Advancing Personalized Education and Overcoming Challenges
+- A systematic review of AI-driven intelligent tutoring systems (ITS) in K-12 education
+- AI Driven Tutoring vs. Human Teachers Examining the on Student Teacher Relationship
+- Investigating dialogic interaction in K12 online one-on-one mathematics tutoring using AI and sequence mining techniques
 
 ---
 
