@@ -3,7 +3,7 @@
 <a name="readme-top"></a>
 
 <!-- Project banner -->
-<img width="220" alt="EduMate Logo" src=".logo.png">
+<img width="220" alt="EduMate Logo" src="logo.png">
 
 # ✨ **EduMate**
 
@@ -120,8 +120,7 @@ Both pathways feed into a RAG pipeline that ensures reliable, curriculum-aligned
 ### 📌 Architecture Screenshot
 *(Attach your flowchart as PNG)*  
 
-```markdown
-![EduMate System Flow](.flowchart.png)
+![EduMate System Flow](flowchart.png)
 
 The EduMate architecture follows a structured Orchestrated + RAG-enabled pipeline designed to support tutoring and quiz-based learning:
 
