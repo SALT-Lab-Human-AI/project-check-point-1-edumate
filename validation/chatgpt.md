@@ -4,8 +4,6 @@ This document lists evaluation prompts for each scenario to test **typical**, **
 
 ---
 
-## S1. Structured Problem-Solving Practice
-
 ### ✅ Typical Cases
 
 1. **Problem Understanding** → Prompts should check whether the AI can break down the problem, identify key data, and clarify what is being asked.  
