@@ -1,9 +1,6 @@
 # Prompting Protocol – ChatGpt (GPT-5)
 
-# Prompt Suite for AI Evaluation in K-12 Math Tutor
-
 This document lists evaluation prompts for each scenario to test **typical**, **edge**, and **failure** cases.  
-Each prompt can be tested across different LLMs to assess **accuracy**, **grade-appropriateness**, **feedback clarity**, and **educational quality**.
 
 ---
 
