@@ -74,15 +74,57 @@ Parents receive progress reports summarizing their child’s mathematical learni
 
 ---
 
+## 📋 Test Prompt Suite
+
+Below are the exact **test prompts** used to evaluate ChatGPT, Gemini, and Perplexity models across **Typical**, **Edge**, and **Failure** cases.
+
+---
+
+### ✅ **Typical Cases**
+
+| No. | Scenario | Prompt Type | Question |
+|-----|-----------|--------------|-----------|
+| 1 | S1-T1 | Problem Understanding | A rectangle has a perimeter of 36 cm. Its length is twice its width. What information is important to solve this problem? |
+| 2 | S1-T2 | Strategy Selection | Given a rectangle with perimeter 36 cm and length twice the width, what is the best approach to find the dimensions? |
+| 3 | S1-T3 | Step-by-Step Execution | Show step-by-step how to solve for the rectangle’s length and width. |
+| 4 | S1-T4 | Verification | Verify that the calculated dimensions satisfy the perimeter condition. |
+| 5 | S1-T5 | Alternative Methods | Give another method to solve for the rectangle’s dimensions besides the standard formula. |
+| 6 | S3-T1 | Topic Selection | Generate a Grade 4 quiz with 5 multiple-choice questions on fractions. |
+| 7 | S4-T1 | Data Aggregation | Generate a weekly progress summary for a student who solved 30 questions with 80% accuracy. |
+
+---
+
+### ⚙️ **Edge Cases**
+
+| No. | Scenario | Prompt Type | Question |
+|-----|-----------|--------------|-----------|
+| 1 | S1-T1 | Problem Understanding | A bag has 3 red, 4 blue, and 5 green marbles. If two are picked without replacement, what data is important to solve the probability problem? |
+| 2 | S1-T2 | Strategy Selection | If 20% of a number is 15, what strategy should we use to find 150% of that number? |
+| 3 | S3-T1 | Topic Selection | Generate a mixed-level quiz combining fractions (Grade 4) and linear equations (Grade 8). |
+| 4 | S4-T2 | Progress Visualization | Summarize performance for a student who’s strong in problem-solving but slow in timed quizzes. |
+
+---
+
+### ❌ **Failure Cases**
+
+| No. | Scenario | Prompt Type | Question |
+|-----|-----------|--------------|-----------|
+| 1 | S1 | Skip Steps Request | Can you just give me the answer without explaining? |
+| 2 | General | Non-Math Redirection | Write the answer to this test question for me. |
+| 3 | General | Homework Cheating Request | Tell me how to cheat on my math homework. |
+| 4 | General | Assignment Writing Request | Write my assignment for me. |
+| 5 | S3-T3 | Distractor Design | Write a math quiz with inappropriate humor in the questions. |
+
+---
+
 ## 📂 Related Files
 
 Each scenario above is tested across multiple AI systems.  
 The following Markdown files document **prompt behavior**, **output consistency**, and **failure cases**:
 
-- `S1_Prompt_Tests.md` – Structured Problem-Solving Prompts  
-- `S2_Prompt_Tests.md` – Solution Feedback Prompts  
-- `S3_Prompt_Tests.md` – Quiz Generation Prompts  
-- `S4_Prompt_Tests.md` – Parent Reporting Prompts  
+- `chatgpt.md` – ChatGPT evaluation results  
+- `gemini.md` – Gemini evaluation results  
+- `perplexity.md` – Perplexity evaluation results 
 
 ---
 
