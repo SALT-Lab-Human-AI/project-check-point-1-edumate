@@ -124,7 +124,16 @@ The following Markdown files document **prompt behavior**, **output consistency*
 
 - `chatgpt.md` – ChatGPT evaluation results  
 - `gemini.md` – Gemini evaluation results  
-- `perplexity.md` – Perplexity evaluation results 
+- `perplexity.md` – Perplexity evaluation results ---
+
+---
+
+## Protocol Rules
+- **Format:** Use plain text for consistency across all tools
+- **Retries:** Maximum 1 retry per tool per task
+- **Record:** Record timestamps, latency, response quality, and any errors
+- **Grade Level:** Test each prompt at 3 different grade levels (elementary, middle, high school)
+- **Mathematical Accuracy:** Verify all mathematical solutions for correctness
 
 ---
 

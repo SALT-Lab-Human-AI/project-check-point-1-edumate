@@ -565,3 +565,35 @@ This document lists evaluation prompts for each scenario to test **typical**, **
 
       However, I can create a fun and challenging math quiz for you with clever, appropriate humor. Just let me know what math topics you'd like to cover and the desired difficulty level.   
     ```
+---
+
+## Gap analysis — where it underperforms
+- **Accuracy & formatting hygiene**
+  - Math is correct, but **formatting noise** (duplicated `##`, mixed headings, occasional emoji) adds clutter and token bloat.
+  - Over-explains when the prompt calls for **strategy-only** or minimal verification.
+- **Reliability**
+  - **Styling inconsistency** (heading levels, tone) breaks rubric-based evaluation or templated ingestion.
+- **Latency & cost**
+  - Verbose step-by-step responses inflate **tokens and latency** for simple items.
+- **UX friction**
+  - Like GPT-5: **no immediate artifacts** (PDF/print), and **answer key separation** not guaranteed.
+- **Safety**
+  - Good refusals, but can **over-refuse brevity** (e.g., “answer-only” practice), misaligning with teacher workflows.
+- **Cost**
+  - Pricing competitive but **verbosity inflation** increases **effective cost per item**.
+  - No first-class **per-mode token budget** controls; trimming requires prompt gymnastics.
+  - Batch workflows risk **cost drift** due to inconsistent output length.
+
+---
+
+## AI Use and Disclosure
+In preparing this Prompting Protocol and validation plan, I made use of **Gemini (2.5 pro)** for the following:
+
+- Drafting comprehensive test scenarios for grade-adaptive mathematics tutoring
+- Generating example prompts for different grade levels and mathematical topics
+- Creating parent dashboard integration scenarios and progress reporting examples
+- Developing safety and content filtering test cases
+
+All AI-generated content was **critically reviewed, edited, and adapted by human** before inclusion. The mathematical problems and solutions were verified for accuracy, and all educational content was evaluated for pedagogical appropriateness.
+
+---

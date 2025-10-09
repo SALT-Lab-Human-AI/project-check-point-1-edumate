@@ -627,3 +627,36 @@ This document lists evaluation prompts for each scenario to test **typical**, **
 
       Would you like me to make that instead?      
     ```
+---
+
+## Gap analysis — where it underperforms
+- **Accuracy & scope control**
+  - Generally correct, but **over-answers by default** (adds verification/summaries even when minimal output is requested).
+  - Occasional **format drift** (bold headings, emojis, long prose) when the rubric expects tight structure.
+- **Reliability & determinism**
+  - Pedagogy is consistent, but **verbosity varies** across prompts; brittle for automated evaluations that need byte-stable layouts.
+- **Latency & cost**
+  - Tends toward **long explanations**, inflating tokens and latency for simple tasks.
+- **UX friction**
+  - Offers “printable version” but **doesn’t deliver actual artifacts** (no PDF/worksheet link inline).
+  - Answer keys sometimes **embedded with questions** instead of separated.
+- **Safety**
+  - Refuses cheating appropriately, yet can **resist “just the answer”** in legitimate practice contexts unless tightly constrained.
+- **Cost**
+  - **Higher model pricing** tier; verbose defaults drive **token overuse**.
+  - Limited native **budget controls** per response (no easy token cap/trim profiles for educators).
+  - Batch generation (quizzes/variants) can **scale costs unpredictably** without strict length constraints.
+
+---
+
+## AI Use and Disclosure
+In preparing this Prompting Protocol and validation plan, I made use of **ChatGPT (OpenAI GPT-5)** for the following:
+
+- Drafting comprehensive test scenarios for grade-adaptive mathematics tutoring
+- Generating example prompts for different grade levels and mathematical topics
+- Creating parent dashboard integration scenarios and progress reporting examples
+- Developing safety and content filtering test cases
+
+All AI-generated content was **critically reviewed, edited, and adapted by human** before inclusion. The mathematical problems and solutions were verified for accuracy, and all educational content was evaluated for pedagogical appropriateness.
+
+---
