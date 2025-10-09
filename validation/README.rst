@@ -1,6 +1,6 @@
 ## Core Scenarios
 
-- **S1 Structured Problem-Solving Practice: Provide guided exercises that lead students through each phase of problem-solving — from understanding and strategizing to execution, verification, and exploring alternate methods.  
+- **S1 Structured Problem-Solving Practice:** Provide guided exercises that lead students through each phase of problem-solving — from understanding and strategizing to execution, verification, and exploring alternate methods.  
 - **S2 AI-Powered Solution Feedback:** Let students upload or input their solutions, verify correctness, and receive guided feedback pinpointing and explaining errors.   
 - **S3 Mathematical Quiz Generation:** Generate multiple-choice math questions with misconception-based distractors for selected grade levels and topics.  
 - **S4 Parent Progress Reporting (edge):** Create parent-friendly progress reports based on a student’s performance data.  
