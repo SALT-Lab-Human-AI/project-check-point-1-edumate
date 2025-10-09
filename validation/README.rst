@@ -5,7 +5,7 @@
 This document summarizes the **Prompting Protocol** for **Edumate**, an AI-powered K–12 tutoring system designed to enhance mathematical learning through structured guidance, adaptive feedback, quiz generation, and personalized insights.
 
 The detailed scenario tasks and evaluation breakdown can be found in:
-``Scenarios_and_tasks.md``
+`Scenarios_and_tasks.md <./Scenarios_and_tasks.md>`_
 
 This summary provides:
 - The **core learning scenarios** used in Edumate’s AI evaluation process.  
@@ -68,10 +68,10 @@ These prompts were designed to capture how each AI model handles reasoning depth
 📘 Reference Files
 -----------------
 
-- ``Scenarios_and_tasks.md`` – Detailed task definitions for each scenario  
-- ``chatgpt.md`` – ChatGPT evaluation results  
-- ``gemini.md`` – Gemini evaluation results  
-- ``perplexity.md`` – Perplexity evaluation results  
+- `Scenarios_and_tasks.md <./Scenarios_and_tasks.md>`_ – Detailed task definitions for each scenario  
+- `chatgpt.md <./chatgpt.md>`_ – ChatGPT evaluation results  
+- `gemini.md <./gemini.md>`_ – Gemini evaluation results  
+- `perplexity.md <./perplexity.md>`_ – Perplexity evaluation results  
 
 ----------------
 🏫 About Edumate
