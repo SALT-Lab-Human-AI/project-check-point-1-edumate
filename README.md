@@ -47,12 +47,13 @@ Students need **instant, reliable, grade-level help** outside class. Generic cha
 
 ## 🎯 Target Users and Core Tasks
 
-| 👥 **User** | 🏆 **Primary Goal** | 🔧 **What EduMate Provides** |
+| **User** | **Primary Goal** | **What EduMate Provides** |
 |---|---|---|
-| **Middle schoolers** | Homework help & confidence | Socratic hints, step-by-step + friendly tone |
-| **High schoolers** | Deeper, faster mastery | Grade-aware explanations + harder quiz modes |
-| **Parents/Guardians** | Transparent progress | Weekly summary, weak skills, next-best practice |
-| **After-school staff** | Track learning efficiently | Dashboards, auto-grading, exportable reports |
+| **K–12 Students** | Learn effectively with the right level of support | **S1 Structured Practice** with grade/topic selectors, AI-generated or custom questions, and phased solutions (Understand → Strategy → Step-by-step LaTeX → Verify → Alternates). |
+| **Students uploading their work** | Get precise guidance on mistakes | **S2 Solution Feedback** with text/file uploads (OCR preview), “Hints-first” mode, or **Direct Answer** (if parent-enabled), plus error annotations and fix-it tips. |
+| **Students preparing for tests** | Targeted practice and quick assessment | **S3 Quiz Generation** with grade-aware topics, **misconception-based distractors**, optional “Check Answer,” progress dots, and detailed results/explanations. |
+| **Parents / Guardians** | Control the learning environment & see progress | **Parent Portal Controls:** toggle Direct Answer (S2), allow/disallow S1 question generation, **fix question count**, **lock difficulty**, set daily goals. **Dashboard:** accuracy over time, topic heatmap, time-on-task, recent activity; export summaries. |
+| **After-school staff / Tutors** | Monitor groups and run structured practice | Quick-start quiz presets by grade/topic, view attempt summaries, downloadable reports, and visibility into parent-locked settings for consistent sessions. |
 
 ---
 
