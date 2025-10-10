@@ -1,10 +1,13 @@
 # 🧠 Prompting Protocol
 
 This document outlines the **Prompting Protocol** used in the development and testing of **Edumate**, an AI-powered K-12 tutoring application.  
+
 Edumate is designed to enhance students’ mathematical learning experiences through structured guidance, AI-based feedback, quiz generation, and personalized progress insights.  
 
-The **Prompting Protocol** defines how different **AI models** (e.g., ChatGPT, Gemini, Copilot) are prompted, evaluated, and compared across structured educational scenarios.  
-Each scenario below represents a distinct learning experience within Edumate.  
+The **Prompting Protocol** defines how different **AI models** (e.g., ChatGPT, Gemini, Copilot) are prompted, evaluated, and compared across structured educational scenarios. 
+
+Each scenario below represents a distinct learning experience within Edumate. 
+
 Four supplementary files accompany this document — each focusing on **typical**, **edge**, and **failure** prompt cases for every AI tool under evaluation.
 
 ---
