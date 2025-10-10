@@ -170,3 +170,13 @@ Generate multiple-choice math quizzes with **misconception-based distractors** t
 | S2            | Question + Student Answer → AI comparison → error feedback          |
 | S3            | Parameters → Quiz generation → User attempt → Score + Explanation   |
 | Parent Portal | Fetch controls & progress from DB → display charts                  |
+
+---
+
+## Future Enhancements
+
+1. **Gamification:** Introduces badges and progress milestones to motivate students and enhance engagement.  
+
+2. **Adaptive Difficulty for MCQs:** Adjusts question complexity dynamically based on individual performance trends.  
+
+3. **Weekly Student Progress Report:** Generates detailed progress summaries and supports speech-to-text for easy question input.  
