@@ -162,7 +162,7 @@ Below are the exact **test prompts** used to evaluate ChatGPT, Gemini, and Perpl
 Each scenario above is tested across multiple AI systems.  
 The following Markdown files document **prompt behavior**, **output consistency**, and **failure cases**:
 
-- `chatgpt.md` – ChatGPT evaluation results  
+- `[chatgpt.md](./chatgpt.md)` – ChatGPT evaluation results 
 - `gemini.md` – Gemini evaluation results  
 - `perplexity.md` – Perplexity evaluation results ---
 
