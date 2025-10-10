@@ -5,7 +5,7 @@
 This document summarizes the **Prompting Protocol** for **Edumate**, an AI-powered K–12 tutoring system designed to enhance mathematical learning through structured guidance, adaptive feedback, quiz generation, and personalized insights.
 
 The detailed scenario tasks and evaluation breakdown can be found in:
-`Scenarios_and_tasks.md <./Scenarios_and_tasks.md>`_
+`Scenarios_and_tasks.md <./Scenarios-and-tasks.md>`_
 
 This summary provides:
 - The **core learning scenarios** used in Edumate’s AI evaluation process.  
