@@ -9,10 +9,13 @@
 **EduMate** is an AI-powered learning platform offering structured problem-solving, intelligent feedback, and adaptive quiz generation for K–12 students. The system uses **Retrieval-Augmented Generation (RAG)** to deliver grade-appropriate guidance while enabling parents to monitor and customize student learning experiences.
 
 **Prototype Screens (replace placeholders below):**
-- Login: `![Login](resources/slogin.png)`
-- Student Dashboard: `![Student Dashboard](resources/sdhboard.png)`
-- Parent Dashboard: `![Parent Dashboard](resources/pdboard.png)`
-- Profile: `![Profile](resources/profile.jpeg)`
+- Login: ![Login](resources/slogin.png)
+  
+- Student Dashboard: ![Student Dashboard](resources/sdboard.png)
+  
+- Parent Dashboard: ![Parent Dashboard](resources/pdboard.png)
+  
+- Profile: ![Profile](resources/profile.jpeg)
 
 ---
 
@@ -30,8 +33,8 @@
 - On success, user is redirected to the respective dashboard.
 
 **Screenshot(s):**
-- `![Student Login Screen](resources/slogin.png)`
-- `![Parents Login Screen](resources/plogin.png)`
+![Student Login Screen](resources/slogin.png)
+![Parents Login Screen](resources/plogin.png)
 
 ---
 
@@ -45,7 +48,7 @@ After login, the **Student Dashboard** presents **three primary modules:**
 Each module is accessible via clearly labeled cards or buttons.
 
 **Screenshot(s):**
-- `![Student Dashboard](resources/sdboard.png)`
+![Student Dashboard](resources/sdboard.png)
 
 ---
 
@@ -66,7 +69,7 @@ Guide students step-by-step through the full problem-solving cycle—from unders
    - Planning strategy  
    - Step-by-step solution with LaTeX math  
    - Verification and alternate approaches  
-`![Structured Problem-Solving Practice](resources/S1.png)`
+![Structured Problem-Solving Practice](resources/S1.png)
 
 **Output:**  
 An interactive, scrollable explanation with **expandable sections** and **KaTeX** rendering.
@@ -90,7 +93,7 @@ Allow students to upload or input their own solutions and receive precise feedba
 
 **Parent Controls:**  
 Parents can toggle **Direct Answer** availability in their dashboard.  
-`![AI-Powered Solution Feedback](resources/S2.png)`
+![AI-Powered Solution Feedback](resources/S2.png)
 
 ---
 
@@ -107,7 +110,7 @@ Generate multiple-choice math quizzes with **misconception-based distractors** t
 5. **Generate Quiz:** System creates custom quiz.  
 6. **Interactive Quiz:** A–D options with instant feedback and progress tracking.  
 7. **Results Summary:** Score, correct/incorrect answers, and explanations.  
-`![Mathematical Quiz Generation](resources/S3.png)`
+![Mathematical Quiz Generation](resources/S3.png)
 
 ---
 
@@ -134,7 +137,7 @@ Generate multiple-choice math quizzes with **misconception-based distractors** t
 - Alerts for completed quizzes and AI feedback.  
 - Recommendations for improvement based on patterns.
 
-- `![Parent Dashboard](resources/pdboard.png)`
+![Parent Dashboard](resources/pdboard.png)
 
 ---
 
