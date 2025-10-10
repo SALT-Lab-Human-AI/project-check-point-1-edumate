@@ -15,10 +15,9 @@
 *Making learning addictive — the right way.*
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-red?style=for-the-badge)](#)
-[![Made with Love](https://img.shields.io/badge/Made%20with-💙_for%20students-ff69b4?style=for-the-badge)](#)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009485?logo=fastapi&logoColor=white&style=for-the-badge)](#)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-121212?style=for-the-badge)](#)
-[![Groq](https://img.shields.io/badge/Groq-FF4D4D?style=for-the-badge)](#)
+[![ChatGPT](https://img.shields.io/badge/ChatGPT-00A67E?style=for-the-badge&logo=openai&logoColor=white)](https://chat.openai.com/)
 [![React](https://img.shields.io/badge/React-20232a?logo=react&logoColor=61DAFB&style=for-the-badge)](#)
 
 </div>
@@ -29,10 +28,10 @@
 1. [Problem Statement and Why It Matters](#-problem-statement-and-why-it-matters)  
 2. [Target Users and Core Tasks](#-target-users-and-core-tasks)  
 3. [Competitive Landscape & AI Limitations](#-competitive-landscape--ai-limitations)  
-4. [Literature Review (Starter List)](#-literature-review-starter-list)  
+4. [Literature Review](#-literature-review)  
 5. [Initial Concept and Value Proposition](#-initial-concept-and-value-proposition)  
-6. [Workflow Overview](#-Workflow-Overview)  
-7. [Architecture Overview](#-Architecture-Overview)  
+6. [Workflow Overview](#-workflow-overview)  
+7. [Architecture Overview](#-architecture-overview)  
 8. [License](#-license)
 
 ---
@@ -115,8 +114,7 @@ Both pathways feed into a RAG pipeline that ensures reliable, curriculum-aligned
 
 ## 📊 Workflow Overview  
 
-### 📌 Architecture Screenshot
-*(Attach your flowchart as PNG)*  
+### 📌 Architecture Screenshot 
 
 ![EduMate System Flow](flowchart.png)
 
@@ -161,6 +159,7 @@ Both paths leverage the RAG (Retrieval-Augmented Generation) pipeline for accura
 ---
 
 ## 🏗️ Architecture Overview
+
 **Frontend (React)**  
 - Tutor view (grade slider + LaTeX rendering)  
 - Quiz view (generate → answer → check → submit)  
