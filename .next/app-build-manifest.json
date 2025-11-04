@@ -26,6 +26,18 @@
       "static/chunks/main-app.js",
       "static/css/app/student/s1/page.css",
       "static/chunks/app/student/s1/page.js"
+    ],
+    "/student/s2/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/student/s2/page.css",
+      "static/chunks/app/student/s2/page.js"
+    ],
+    "/student/s3/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/student/s3/page.css",
+      "static/chunks/app/student/s3/page.js"
     ]
   }
 }

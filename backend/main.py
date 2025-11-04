@@ -126,6 +126,11 @@ def format_latex(answer: str) -> str:
     # Step 7: Clean up any double dollar signs that might have been created
     answer = re.sub(r'\$\$\$\$', '$$', answer)
     
+    # Step 8: Fix escaped dollar signs in currency contexts (e.g., \$7 -> $7)
+    # Only replace escaped dollar signs followed by numbers (currency), not math expressions
+    # Pattern: \$ followed by a number (not a math expression)
+    answer = re.sub(r'\\\$(\d+(?:,\d{3})*(?:\.\d{2})?)', r'$\1', answer)
+    
     return answer
 
 

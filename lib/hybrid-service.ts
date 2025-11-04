@@ -23,9 +23,64 @@ export async function getTopics(grade: number): Promise<string[]> {
 }
 
 export async function generateQuestion(grade: number, topic: string): Promise<string> {
-  // Use the real API to generate a question
-  const response = await apiService.askQuestion(`Generate a ${topic} problem for grade ${grade}`, grade)
-  return response.answer
+  // Use the real API to generate a question - explicitly request ONLY the question, no answers or hints
+  const prompt = `Generate a detailed ${topic} problem/question suitable for grade ${grade} students.
+
+IMPORTANT INSTRUCTIONS:
+- Generate ONLY the question/problem statement
+- Do NOT include the answer, solution, or any hints
+- Do NOT include any explanation or solution steps
+- The output should be ONLY the question text that the student needs to solve
+- Make the question detailed, clear, and appropriate for grade ${grade}
+
+FORMATTING REQUIREMENTS:
+- Use clear, well-structured sentences with proper punctuation
+- Break long sentences into shorter, easier-to-read sentences
+- Use line breaks to separate different parts of the question for better readability
+- For currency amounts, use plain dollar signs (e.g., $7, $12, $1,260) NOT LaTeX formatting
+- For currency, write it as "$7" not "\\$7" or in any math notation
+- Only use LaTeX/math notation ($...$) for actual mathematical expressions, NOT for currency
+- Use proper spacing between numbers and units
+- Make the question easy to read and understand at a glance
+- Structure the question with clear sections if it has multiple parts
+- DO NOT use ANY markdown formatting (no **bold**, *italic*, __underline__, # headings, etc.)
+- Write in plain text only - no special formatting characters
+- DO NOT use asterisks (*) or underscores (_) for emphasis
+- Use plain text with proper capitalization and punctuation for emphasis
+
+EXAMPLE OF GOOD FORMATTING:
+"At the annual science fair, students can purchase two types of science kits:
+- Basic Kit: $7
+- Advanced Kit: $12
+
+In one day, the fair sold a total of 150 kits and collected $1,260.
+
+How many Basic Kits and how many Advanced Kits were sold?"
+
+Return ONLY the question with proper formatting, nothing else.`
+
+  const response = await apiService.askQuestion(prompt, grade)
+  
+  // Clean up the response to remove markdown and formatting issues
+  let cleanedAnswer = response.answer
+    // Remove markdown bold (**text** or __text__) - must be processed first before single *
+    .replace(/\*\*([^*]+?)\*\*/g, '$1')
+    .replace(/__([^_]+?)__/g, '$1')
+    // Remove escaped dollar signs with plain dollar signs (for currency)
+    .replace(/\\\$/g, '$')
+    // Remove markdown headers (# ## ### etc.)
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove markdown italic (*text* or _text_) - but preserve bullet points
+    // Match *text* but not * item (bullet) - bullets have space after *
+    .replace(/\*([^*\s][^*]*?[^*\s])\*/g, '$1')
+    .replace(/_([^_\s][^_]*?[^_\s])_/g, '$1')
+    // Remove any remaining markdown link syntax [text](url)
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+    // Clean up extra whitespace that might result from removals
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  
+  return cleanedAnswer
 }
 
 export async function solveS1(payload: { grade: number; topic: string; question: string }) {
