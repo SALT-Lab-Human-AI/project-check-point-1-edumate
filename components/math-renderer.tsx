@@ -176,7 +176,8 @@ export function MathRenderer({ children, className = "" }: { children: string; c
     .replace(/(\d)([a-z])/g, '$1 $2')
 
   // Split by $$ for display math and $ for inline math
-  const parts = cleanedText.split(/(\$\$[^$]*\$\$|\$[^$]*\$)/)
+  // Use non-greedy matching and handle multi-line content
+  const parts = cleanedText.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]*\$)/)
   
   return (
     <div className={`${className} whitespace-pre-wrap`}>

@@ -6,38 +6,26 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/page": [
+    "/student/s3/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
-    ],
-    "/login/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/login/page.js"
+      "static/css/app/student/s3/page.css",
+      "static/chunks/app/student/s3/page.js"
     ],
     "/student/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/student/page.js"
     ],
-    "/student/s1/page": [
+    "/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/student/s1/page.css",
-      "static/chunks/app/student/s1/page.js"
+      "static/chunks/app/login/page.js"
     ],
-    "/student/s2/page": [
+    "/parent/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/student/s2/page.css",
-      "static/chunks/app/student/s2/page.js"
-    ],
-    "/student/s3/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/app/student/s3/page.css",
-      "static/chunks/app/student/s3/page.js"
+      "static/chunks/app/parent/page.js"
     ]
   }
 }

@@ -79,6 +79,15 @@ export default function S3Page() {
     loadTopics()
   }, [grade, topic])
 
+  // Ensure currentQuestion is valid when quizData changes
+  useEffect(() => {
+    if (quizData && quizData.questions.length > 0) {
+      if (currentQuestion >= quizData.questions.length) {
+        setCurrentQuestion(0)
+      }
+    }
+  }, [quizData, currentQuestion])
+
   const handleGenerateQuiz = async () => {
     if (!topic) {
       setError("Please select a topic")
@@ -136,7 +145,10 @@ export default function S3Page() {
       }))
 
       const results = await gradeQuiz({ items, answers })
-      setQuizResults(results)
+      setQuizResults({
+        ...results,
+        percentage: Math.round((results.score / results.total) * 100)
+      })
       setView("results")
     } catch (err) {
       console.error("Failed to grade quiz:", err)
@@ -146,17 +158,13 @@ export default function S3Page() {
     }
   }
 
-  const handleAnswerSelect = (answer: string) => {
+  const handleAnswerSelect = (answer: string, questionIndex?: number) => {
+    const index = questionIndex !== undefined ? questionIndex : currentQuestion
     setSelectedAnswers(prev => ({
       ...prev,
-      [currentQuestion]: answer
+      [index]: answer
     }))
   }
-
-  // Update selectedAnswer when currentQuestion changes
-  useEffect(() => {
-    setSelectedAnswer(selectedAnswers[currentQuestion] || "")
-  }, [currentQuestion, selectedAnswers])
 
   if (view === "results" && quizResults && quizData) {
     return (
@@ -233,8 +241,48 @@ export default function S3Page() {
   }
 
   if (view === "quiz" && quizData) {
-    const currentQ = quizData.questions[currentQuestion]
-    const selectedAnswer = selectedAnswers[currentQuestion] || ""
+    // Safety check: ensure currentQuestion is valid and quizData.questions exists
+    if (!quizData.questions || quizData.questions.length === 0) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <NavBar />
+          <main className="max-w-[1440px] mx-auto px-6 py-8">
+            <Card className="p-6">
+              <div className="text-center text-red-600">
+                <p>Error: No questions available. Please create a new quiz.</p>
+                <Button onClick={() => setView("config")} className="mt-4">
+                  Create New Quiz
+                </Button>
+              </div>
+            </Card>
+          </main>
+        </div>
+      )
+    }
+    
+    // Ensure currentQuestion is within bounds
+    const validQuestionIndex = Math.max(0, Math.min(currentQuestion, quizData.questions.length - 1))
+    const currentQ = quizData.questions[validQuestionIndex]
+    const selectedAnswer = selectedAnswers[validQuestionIndex] || ""
+    
+    // If currentQ is still undefined, return error state
+    if (!currentQ) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <NavBar />
+          <main className="max-w-[1440px] mx-auto px-6 py-8">
+            <Card className="p-6">
+              <div className="text-center text-red-600">
+                <p>Error: Question not found. Please create a new quiz.</p>
+                <Button onClick={() => setView("config")} className="mt-4">
+                  Create New Quiz
+                </Button>
+              </div>
+            </Card>
+          </main>
+        </div>
+      )
+    }
 
     return (
       <div className="min-h-screen bg-gray-50">
@@ -283,14 +331,14 @@ export default function S3Page() {
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-sm text-text/60">
-                      Question {currentQuestion + 1} of {quizData.questions.length}
+                      Question {validQuestionIndex + 1} of {quizData.questions.length}
                     </span>
                   </div>
 
                   <div className="h-1 bg-gray-line rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary transition-all"
-                      style={{ width: `${((currentQuestion + 1) / quizData.questions.length) * 100}%` }}
+                      style={{ width: `${((validQuestionIndex + 1) / quizData.questions.length) * 100}%` }}
                     />
                   </div>
                 </div>
@@ -300,9 +348,9 @@ export default function S3Page() {
                     <MathRenderer>{currentQ.question}</MathRenderer>
                   </div>
 
-                  <RadioGroup value={selectedAnswer} onValueChange={handleAnswerSelect}>
+                  <RadioGroup value={selectedAnswer} onValueChange={(value) => handleAnswerSelect(value, validQuestionIndex)}>
                     <div className="space-y-3">
-                      {currentQ.options.map((option) => {
+                      {currentQ.options?.map((option) => {
                         const isSelected = selectedAnswer === option.id
 
                         return (

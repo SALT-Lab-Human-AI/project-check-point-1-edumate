@@ -33,6 +33,39 @@ def format_latex(answer: str) -> str:
     if not answer:
         return answer
     
+    # Step 0: Fix malformed LaTeX patterns with $ in wrong places (before any other processing)
+    # Fix patterns like $\begin{aligned}...$\end${aligned}$ -> \begin{aligned}...\end{aligned}
+    answer = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*?)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
+    # Fix patterns like $\begin{aligned}...\end${aligned}$ -> \begin{aligned}...\end{aligned}
+    answer = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*?)\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
+    # Fix patterns like \begin{aligned}$...$\end${aligned} -> \begin{aligned}...\end{aligned}
+    answer = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*?)\$\\end\$\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', answer)
+    # Fix patterns like $ \begin{aligned}...$\end${aligned}$ (with space)
+    answer = re.sub(r'\$\s*\\begin\{(\w+)\}([\s\S]*?)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
+    # Fix patterns where $ appears inside the environment content: \begin{aligned}$content$\end{aligned}
+    answer = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*?)\$\\end\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', answer)
+    # Fix patterns like $\end${aligned} -> \end{aligned}
+    answer = re.sub(r'\$\\end\$\{(\w+)\}', r'\\end{\1}', answer)
+    # Fix patterns like $\begin${aligned} -> \begin{aligned}
+    answer = re.sub(r'\$\\begin\$\{(\w+)\}', r'\\begin{\1}', answer)
+    # Fix patterns where $ appears in the middle: \end${aligned} -> \end{aligned}
+    answer = re.sub(r'\\end\$\{(\w+)\}', r'\\end{\1}', answer)
+    answer = re.sub(r'\\begin\$\{(\w+)\}', r'\\begin{\1}', answer)
+    # Fix patterns like $\end${cases} -> \end{cases}
+    answer = re.sub(r'\$\$?\\end\$\{(\w+)\}', r'\\end{\1}', answer)
+    answer = re.sub(r'\$\$?\\begin\$\{(\w+)\}', r'\\begin{\1}', answer)
+    # Remove stray $ signs that appear before or after \begin/\end
+    answer = re.sub(r'\$\\begin\{(\w+)\}', r'\\begin{\1}', answer)
+    answer = re.sub(r'\\end\{(\w+)\}\$', r'\\end{\1}', answer)
+    
+    # Fix incorrect line break syntax: || -> \\ in cases/aligned environments
+    # First, fix || anywhere in the string that should be \\ for LaTeX line breaks
+    # Replace all || with \\ (but be careful not to break existing \\)
+    answer = re.sub(r'\|\|', r'\\\\', answer)
+    # But we need to be careful - if there are already proper \\, we don't want \\\\\ 
+    # So fix any triple+ backslashes back to double
+    answer = re.sub(r'\\{3,}', r'\\\\', answer)
+    
     # Step 1: Fix the most complex malformed patterns first
     # Pattern: $$\begin${aligned}$$ ... $$$\end${aligned}$
     answer = re.sub(r'\$\$\\begin\$\{([^}]+)\}\$\$([\s\S]*?)\$\$\$\\end\$\{([^}]+)\}\$', 
@@ -66,6 +99,7 @@ def format_latex(answer: str) -> str:
     answer = re.sub(r"\\\[([\s\S]*?)\\\]", r"$$\1$$", answer)
     
     # Handle \begin{aligned}...\end{aligned} blocks
+    # First, handle properly formatted ones (after Step 0 fixes malformed patterns)
     answer = re.sub(r"\\begin\{aligned\}([\s\S]*?)\\end\{aligned\}", r"$$\\begin{aligned}\1\\end{aligned}$$", answer)
     
     # Handle \begin{array}...\end{array} blocks
@@ -130,6 +164,13 @@ def format_latex(answer: str) -> str:
     # Only replace escaped dollar signs followed by numbers (currency), not math expressions
     # Pattern: \$ followed by a number (not a math expression)
     answer = re.sub(r'\\\$(\d+(?:,\d{3})*(?:\.\d{2})?)', r'$\1', answer)
+    
+    # Step 9: Ensure proper spacing around block math for better readability
+    # Add line breaks before and after $$ blocks if not present (for questions)
+    answer = re.sub(r'([^\n])(\$\$[^$]+\$\$)', r'\1\n\n\2', answer)
+    answer = re.sub(r'(\$\$[^$]+\$\$)([^\n])', r'\1\n\n\2', answer)
+    # Clean up triple newlines
+    answer = re.sub(r'\n{3,}', '\n\n', answer)
     
     return answer
 

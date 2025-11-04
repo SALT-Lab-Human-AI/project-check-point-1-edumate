@@ -10,17 +10,49 @@ def _normalize_latex(md: str) -> str:
     if not md:
         return md
     
-    # Handle block math environments
-    md = re.sub(r"\\\[([\s\S]*?)\\\]", r"$$\1$$", md)
+    # Step 0: Fix malformed LaTeX patterns first (before any other processing)
+    # Fix patterns like $\begin{aligned}...$\end${aligned}$ -> \begin{aligned}...\end{aligned}
+    md = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*?)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', md)
+    # Fix patterns like $\begin{aligned}...\end${aligned}$ -> \begin{aligned}...\end{aligned}
+    md = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*?)\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', md)
+    # Fix patterns like \begin{aligned}$...$\end${aligned} -> \begin{aligned}...\end{aligned}
+    md = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*?)\$\\end\$\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', md)
+    # Fix patterns like $ \begin{aligned}...$\end${aligned}$ (with space)
+    md = re.sub(r'\$\s*\\begin\{(\w+)\}([\s\S]*?)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', md)
+    # Fix patterns where $ appears inside the environment content: \begin{aligned}$content$\end{aligned}
+    md = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*?)\$\\end\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', md)
+    # Fix patterns like $\end${aligned} -> \end{aligned}
+    md = re.sub(r'\$\\end\$\{(\w+)\}', r'\\end{\1}', md)
+    # Fix patterns like $\begin${aligned} -> \begin{aligned}
+    md = re.sub(r'\$\\begin\$\{(\w+)\}', r'\\begin{\1}', md)
+    # Fix patterns where $ appears in the middle: \end${aligned} -> \end{aligned
+    md = re.sub(r'\\end\$\{(\w+)\}', r'\\end{\1}', md)
+    md = re.sub(r'\\begin\$\{(\w+)\}', r'\\begin{\1}', md)
+    # Fix patterns like $\end${cases} -> \end{cases}
+    md = re.sub(r'\$\$?\\end\$\{(\w+)\}', r'\\end{\1}', md)
+    md = re.sub(r'\$\$?\\begin\$\{(\w+)\}', r'\\begin{\1}', md)
+    # Remove stray $ signs that appear before or after \begin/\end
+    md = re.sub(r'\$\\begin\{(\w+)\}', r'\\begin{\1}', md)
+    md = re.sub(r'\\end\{(\w+)\}\$', r'\\end{\1}', md)
+    
+    # Fix incorrect line break syntax: || -> \\ in cases/aligned environments
+    # First, fix || anywhere in the string that should be \\ for LaTeX line breaks
+    # Replace all || with \\ (but be careful not to break existing \\)
+    md = re.sub(r'\|\|', r'\\\\', md)
+    # But we need to be careful - if there are already proper \\, we don't want \\\\\ 
+    # So fix any triple+ backslashes back to double
+    md = re.sub(r'\\{3,}', r'\\\\', md)
+    
+    # Handle block math environments FIRST (before other processing)
+    # Handle \begin{cases}...\end{cases} blocks - must be before other begin/end patterns
+    md = re.sub(r"\\begin\{cases\}([\s\S]*?)\\end\{cases\}", r"$$\\begin{cases}\1\\end{cases}$$", md)
     
     # Handle \begin{aligned}...\end{aligned} blocks
+    # First, handle properly formatted ones
     md = re.sub(r"\\begin\{aligned\}([\s\S]*?)\\end\{aligned\}", r"$$\\begin{aligned}\1\\end{aligned}$$", md)
     
     # Handle \begin{array}...\end{array} blocks
     md = re.sub(r"\\begin\{array\}([\s\S]*?)\\end\{array\}", r"$$\\begin{array}\1\\end{array}$$", md)
-    
-    # Handle \begin{cases}...\end{cases} blocks
-    md = re.sub(r"\\begin\{cases\}([\s\S]*?)\\end\{cases\}", r"$$\\begin{cases}\1\\end{cases}$$", md)
     
     # Handle \begin{matrix}...\end{matrix} blocks
     md = re.sub(r"\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}", r"$$\\begin{matrix}\1\\end{matrix}$$", md)
@@ -34,6 +66,9 @@ def _normalize_latex(md: str) -> str:
     # Handle \begin{bmatrix}...\end{bmatrix} blocks
     md = re.sub(r"\\begin\{bmatrix\}([\s\S]*?)\\end\{bmatrix\}", r"$$\\begin{bmatrix}\1\\end{bmatrix}$$", md)
     
+    # Handle block math environments \[...\]
+    md = re.sub(r"\\\[([\s\S]*?)\\\]", r"$$\1$$", md)
+    
     # Handle inline math
     md = re.sub(r"\\\(([\s\S]*?)\\\)", r"$\1$", md)
     
@@ -42,6 +77,13 @@ def _normalize_latex(md: str) -> str:
     
     # Clean up any double dollar signs that might have been created
     md = re.sub(r'\$\$\$\$', '$$', md)
+    
+    # Ensure proper spacing around block math - add line breaks before and after $$ blocks if not present
+    # This makes it easier to read in questions
+    md = re.sub(r'([^\n])(\$\$[^$]+\$\$)', r'\1\n\n\2', md)
+    md = re.sub(r'(\$\$[^$]+\$\$)([^\n])', r'\1\n\n\2', md)
+    # Clean up triple newlines
+    md = re.sub(r'\n{3,}', '\n\n', md)
     
     return md
 
@@ -192,12 +234,24 @@ def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "m
         f"{_grade_hint(grade)} "
         "Use ONLY the provided context to avoid errors. "
         "For math, use LaTeX $$...$$ (block) and \\(...\\) (inline). "
+        "IMPORTANT: Use correct LaTeX syntax. For \\begin{{aligned}}...\\end{{aligned}}, use \\end{{aligned}} NOT $\\end${{aligned}} or \\end${{aligned}}. "
+        "Never use $ signs inside \\begin or \\end commands. Use proper LaTeX syntax only. "
         "Return STRICT JSON ONLY. Do not include backticks or extra prose. "
         "The root must be an object with an 'items' array."
     )
     user = f"""
 Generate exactly {n} multiple-choice questions for grade {grade} on the topic "{topic}" at {difficulty} difficulty.
 Each item must be solvable for that grade. Make choices plausible; only one correct option (A–D). Include a short explanation.
+
+LATEX FORMATTING RULES:
+- For block math (equations, systems), use: $$\\begin{{aligned}}...\\end{{aligned}}$$
+- For inline math, use: \\(...\\)
+- NEVER use $ signs inside \\begin or \\end commands
+- Use correct LaTeX syntax: \\end{{aligned}} NOT $\\end${{aligned}} or \\end${{aligned}}
+- For systems of equations, use: $$\\begin{{cases}}...\\end{{cases}}$$
+- For line breaks in cases/aligned environments, use \\\\ (double backslash) NOT || (double pipe)
+- Example: $$\\begin{{cases}}x+y=5\\\\x-y=3\\end{{cases}}$$ NOT $$\\begin{{cases}}x+y=5||x-y=3\\end{{cases}}$$
+- Always use proper LaTeX syntax with correct escaping
 
 Return a JSON object exactly:
 {{
