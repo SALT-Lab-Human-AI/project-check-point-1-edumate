@@ -1,6 +1,8 @@
 {
   "/student/page": "app/student/page.js",
-  "/parent/page": "app/parent/page.js",
+  "/student/s3/page": "app/student/s3/page.js",
   "/login/page": "app/login/page.js",
-  "/student/s3/page": "app/student/s3/page.js"
+  "/parent/page": "app/parent/page.js",
+  "/signup/page": "app/signup/page.js",
+  "/student/s1/page": "app/student/s1/page.js"
 }

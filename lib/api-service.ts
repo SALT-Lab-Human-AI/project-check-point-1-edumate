@@ -108,3 +108,83 @@ export async function gradeQuiz(payload: {
 export async function healthCheck(): Promise<{ status: string }> {
   return apiCall('/')
 }
+
+// Authentication
+export async function signup(payload: {
+  email: string
+  password: string
+  name: string
+  role: "student" | "parent"
+  grade?: number
+  parent_email?: string
+}): Promise<{ success: boolean; user?: any; error?: string }> {
+  return apiCall('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function login(payload: {
+  email: string
+  password: string
+  role: "student" | "parent"
+}): Promise<{ success: boolean; user?: any; error?: string }> {
+  return apiCall('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function linkAccount(payload: {
+  parent_id: string
+  student_email: string
+}): Promise<{ success: boolean; message?: string; error?: string }> {
+  return apiCall('/auth/link-account', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function getLinkedStudents(parentId: string): Promise<{
+  success: boolean
+  students?: Array<{ id: string; email: string; name: string; grade: number }>
+  error?: string
+}> {
+  return apiCall(`/auth/students/${parentId}`)
+}
+
+// Quiz tracking
+export async function trackQuiz(payload: {
+  student_id: string
+  topic: string
+  grade: number
+  difficulty: string
+  total_questions: number
+  correct_answers: number
+  score_percentage: number
+  quiz_items: any[]
+  answers: any[]
+}): Promise<{ success: boolean; attempt_id?: string; error?: string }> {
+  return apiCall('/quiz/track', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+// Statistics
+export async function getStudentStats(studentId: string): Promise<{
+  success: boolean
+  stats?: {
+    total_quizzes: number
+    avg_score: number
+    total_correct: number
+    total_questions: number
+    accuracy: number
+    s1_sessions: number
+    s2_sessions: number
+    recent_quizzes: any[]
+  }
+  error?: string
+}> {
+  return apiCall(`/stats/student/${studentId}`)
+}

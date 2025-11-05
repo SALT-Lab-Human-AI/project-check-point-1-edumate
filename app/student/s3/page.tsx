@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { getTopics, generateQuiz, gradeQuiz } from "@/lib/hybrid-service"
+import { trackQuiz } from "@/lib/api-service"
+import { useApp } from "@/store/app-context"
 import { MathRenderer } from "@/components/math-renderer"
 
 interface QuizQuestion {
@@ -47,6 +49,7 @@ interface QuizResults {
 }
 
 export default function S3Page() {
+  const { user } = useApp()
   const [grade, setGrade] = useState(8)
   const [topic, setTopic] = useState("")
   const [questionCount, setQuestionCount] = useState(5)
@@ -145,10 +148,33 @@ export default function S3Page() {
       }))
 
       const results = await gradeQuiz({ items, answers })
+      const percentage = Math.round((results.score / results.total) * 100)
+      
       setQuizResults({
         ...results,
-        percentage: Math.round((results.score / results.total) * 100)
+        percentage
       })
+      
+      // Track quiz attempt if user is logged in
+      if (user && user.role === "student") {
+        try {
+          await trackQuiz({
+            student_id: user.id,
+            topic: quizData.meta.topic,
+            grade: quizData.meta.grade,
+            difficulty: quizData.meta.difficulty,
+            total_questions: results.total,
+            correct_answers: results.score,
+            score_percentage: percentage,
+            quiz_items: items,
+            answers: answers.map(a => ({ id: a.id, selected: a.selected }))
+          })
+        } catch (err) {
+          console.error("Failed to track quiz:", err)
+          // Don't show error to user, just log it
+        }
+      }
+      
       setView("results")
     } catch (err) {
       console.error("Failed to grade quiz:", err)

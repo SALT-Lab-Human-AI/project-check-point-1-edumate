@@ -9,20 +9,106 @@ import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { Lock, TrendingUp, Clock, Target, Calendar } from "lucide-react"
+import { Lock, TrendingUp, Clock, Target, Calendar, Loader2, UserPlus } from "lucide-react"
+import { getLinkedStudents, getStudentStats, linkAccount } from "@/lib/api-service"
+
+interface Student {
+  id: string
+  email: string
+  name: string
+  grade: number
+}
+
+interface StudentStats {
+  total_quizzes: number
+  avg_score: number
+  total_correct: number
+  total_questions: number
+  accuracy: number
+  s1_sessions: number
+  s2_sessions: number
+  recent_quizzes: any[]
+}
 
 export default function ParentDashboard() {
   const { user, parentControls, updateParentControls } = useApp()
   const router = useRouter()
   const [localControls, setLocalControls] = useState(parentControls)
+  const [students, setStudents] = useState<Student[]>([])
+  const [studentStats, setStudentStats] = useState<Record<string, StudentStats>>({})
+  const [loading, setLoading] = useState(true)
+  const [linking, setLinking] = useState(false)
+  const [studentEmail, setStudentEmail] = useState("")
+  const [showLinkForm, setShowLinkForm] = useState(false)
 
   useEffect(() => {
     if (!user) {
       router.push("/login")
     } else if (user.role !== "parent") {
       router.push("/student")
+    } else {
+      loadStudents()
     }
   }, [user, router])
+
+  const loadStudents = async () => {
+    if (!user || user.role !== "parent") return
+    
+    setLoading(true)
+    try {
+      const response = await getLinkedStudents(user.id)
+      if (response.success && response.students) {
+        setStudents(response.students)
+        
+        // Load stats for each student
+        const statsPromises = response.students.map(async (student) => {
+          const statsResponse = await getStudentStats(student.id)
+          if (statsResponse.success && statsResponse.stats) {
+            return { studentId: student.id, stats: statsResponse.stats }
+          }
+          return null
+        })
+        
+        const statsResults = await Promise.all(statsPromises)
+        const statsMap: Record<string, StudentStats> = {}
+        statsResults.forEach((result) => {
+          if (result) {
+            statsMap[result.studentId] = result.stats
+          }
+        })
+        setStudentStats(statsMap)
+      }
+    } catch (err) {
+      console.error("Failed to load students:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLinkStudent = async () => {
+    if (!user || !studentEmail) return
+    
+    setLinking(true)
+    try {
+      const response = await linkAccount({
+        parent_id: user.id,
+        student_email: studentEmail
+      })
+      
+      if (response.success) {
+        setStudentEmail("")
+        setShowLinkForm(false)
+        await loadStudents() // Reload students
+      } else {
+        alert(response.error || "Failed to link account")
+      }
+    } catch (err) {
+      console.error("Failed to link account:", err)
+      alert("Failed to link account. Please try again.")
+    } finally {
+      setLinking(false)
+    }
+  }
 
   useEffect(() => {
     setLocalControls(parentControls)
@@ -35,25 +121,53 @@ export default function ParentDashboard() {
 
   if (!user || user.role !== "parent") return null
 
+  // Calculate aggregate stats from all students
+  const aggregateStats = students.reduce((acc, student) => {
+    const stats = studentStats[student.id]
+    if (stats) {
+      acc.totalQuizzes += stats.total_quizzes
+      acc.totalCorrect += stats.total_correct
+      acc.totalQuestions += stats.total_questions
+      acc.totalScore += stats.avg_score * stats.total_quizzes
+      acc.quizCount += stats.total_quizzes
+    }
+    return acc
+  }, {
+    totalQuizzes: 0,
+    totalCorrect: 0,
+    totalQuestions: 0,
+    totalScore: 0,
+    quizCount: 0
+  })
+
+  const avgAccuracy = aggregateStats.totalQuestions > 0 
+    ? (aggregateStats.totalCorrect / aggregateStats.totalQuestions * 100).toFixed(0)
+    : "0"
+  
+  const avgScore = aggregateStats.quizCount > 0
+    ? (aggregateStats.totalScore / aggregateStats.quizCount).toFixed(0)
+    : "0"
+
   const analyticsData = [
-    { label: "Avg. Accuracy", value: "85%", icon: Target, color: "leaf", trend: "+5%" },
-    { label: "Study Time (7d)", value: "4.5 hrs", icon: Clock, color: "primary", trend: "+12%" },
-    { label: "Problems Solved", value: "47", icon: TrendingUp, color: "yellow", trend: "+8" },
-    { label: "Active Days", value: "6/7", icon: Calendar, color: "sky", trend: "86%" },
+    { label: "Avg. Accuracy", value: `${avgAccuracy}%`, icon: Target, color: "leaf" },
+    { label: "Total Quizzes", value: aggregateStats.totalQuizzes.toString(), icon: TrendingUp, color: "primary" },
+    { label: "Avg. Score", value: `${avgScore}%`, icon: Target, color: "yellow" },
+    { label: "Linked Students", value: students.length.toString(), icon: Calendar, color: "sky" },
   ]
 
-  const topicPerformance = [
-    { topic: "Algebra", accuracy: 92, problems: 15 },
-    { topic: "Linear Equations", accuracy: 85, problems: 12 },
-    { topic: "Geometry", accuracy: 78, problems: 20 },
-  ]
-
-  const recentActivity = [
-    { date: "2 hours ago", activity: "Completed Algebra Quiz", score: "9/10", module: "S3" },
-    { date: "5 hours ago", activity: "Practiced Geometry", score: "85%", module: "S1" },
-    { date: "Yesterday", activity: "Solution Feedback", score: "100%", module: "S2" },
-    { date: "Yesterday", activity: "Linear Equations Quiz", score: "7/10", module: "S3" },
-  ]
+  // Get recent activity from all students
+  const recentActivity = students.flatMap(student => {
+    const stats = studentStats[student.id]
+    if (!stats || !stats.recent_quizzes) return []
+    
+    return stats.recent_quizzes.slice(0, 3).map(quiz => ({
+      student: student.name,
+      date: new Date(quiz.completed_at).toLocaleDateString(),
+      activity: `Completed ${quiz.topic} Quiz`,
+      score: `${quiz.correct_answers}/${quiz.total_questions} (${quiz.score_percentage.toFixed(0)}%)`,
+      module: "S3"
+    }))
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -61,9 +175,88 @@ export default function ParentDashboard() {
 
       <main className="max-w-[1440px] mx-auto px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-navy mb-2">Parent Dashboard</h1>
-          <p className="text-text/60">Monitor progress and manage learning controls for Alex</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-navy mb-2">Parent Dashboard</h1>
+              <p className="text-text/60">Monitor progress and manage learning controls</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowLinkForm(!showLinkForm)}
+              className="flex items-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" />
+              {showLinkForm ? "Cancel" : "Link Student"}
+            </Button>
+          </div>
+          
+          {showLinkForm && (
+            <Card className="p-4 mt-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Student email address"
+                  value={studentEmail}
+                  onChange={(e) => setStudentEmail(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={handleLinkStudent} disabled={linking || !studentEmail}>
+                  {linking ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Linking...
+                    </>
+                  ) : (
+                    "Link Account"
+                  )}
+                </Button>
+              </div>
+            </Card>
+          )}
         </div>
+
+        {students.length === 0 && !loading && (
+          <Card className="p-8 text-center">
+            <p className="text-text/60 mb-4">No students linked yet.</p>
+            <Button onClick={() => setShowLinkForm(true)}>
+              Link a Student Account
+            </Button>
+          </Card>
+        )}
+
+        {students.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-navy mb-4">Linked Students</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {students.map(student => {
+                const stats = studentStats[student.id]
+                return (
+                  <Card key={student.id} className="p-4">
+                    <h3 className="font-bold text-navy mb-2">{student.name}</h3>
+                    <p className="text-sm text-text/60 mb-3">Grade {student.grade}</p>
+                    {stats ? (
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-text/60">Quizzes:</span>
+                          <span className="font-semibold">{stats.total_quizzes}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-text/60">Accuracy:</span>
+                          <span className="font-semibold">{stats.accuracy.toFixed(0)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-text/60">Avg Score:</span>
+                          <span className="font-semibold">{stats.avg_score.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-text/60">No activity yet</p>
+                    )}
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
           <Card className="p-6 lg:col-span-1">
@@ -190,7 +383,6 @@ export default function ParentDashboard() {
                   <Card key={stat.label} className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <Icon className="w-5 h-5" style={{ color: `var(--color-${stat.color})` }} />
-                      <span className="text-xs font-semibold text-leaf">{stat.trend}</span>
                     </div>
                     <div className="text-2xl font-bold text-navy mb-1">{stat.value}</div>
                     <div className="text-xs text-text/60">{stat.label}</div>
@@ -200,43 +392,33 @@ export default function ParentDashboard() {
             </div>
 
             <Card className="p-6">
-              <h3 className="text-lg font-bold text-navy mb-4">Topic Performance</h3>
-              <div className="space-y-4">
-                {topicPerformance.map((topic) => (
-                  <div key={topic.topic}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-navy">{topic.topic}</span>
-                      <span className="text-sm text-text/60">
-                        {topic.accuracy}% · {topic.problems} problems
-                      </span>
-                    </div>
-                    <div className="h-2 bg-gray-line rounded-full overflow-hidden">
-                      <div className="h-full bg-leaf transition-all" style={{ width: `${topic.accuracy}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="p-6">
               <h3 className="text-lg font-bold text-navy mb-4">Recent Activity</h3>
-              <div className="space-y-3">
-                {recentActivity.map((activity, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start justify-between pb-3 border-b border-gray-line last:border-0"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-navy">{activity.activity}</span>
-                        <span className="text-xs px-2 py-0.5 bg-sky/20 text-navy rounded-full">{activity.module}</span>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : recentActivity.length > 0 ? (
+                <div className="space-y-3">
+                  {recentActivity.map((activity, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start justify-between pb-3 border-b border-gray-line last:border-0"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-navy">{activity.activity}</span>
+                          <span className="text-xs px-2 py-0.5 bg-sky/20 text-navy rounded-full">{activity.module}</span>
+                          <span className="text-xs text-text/60">({activity.student})</span>
+                        </div>
+                        <p className="text-xs text-text/60">{activity.date}</p>
                       </div>
-                      <p className="text-xs text-text/60">{activity.date}</p>
+                      <span className="text-sm font-semibold text-leaf">{activity.score}</span>
                     </div>
-                    <span className="text-sm font-semibold text-leaf">{activity.score}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-text/60 text-center py-4">No recent activity</p>
+              )}
             </Card>
           </div>
         </div>

@@ -1,16 +1,23 @@
 # backend/main.py
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import re
+import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.rag_groq_bot import ask_groq            # RAG tutor answer
 from backend.quiz_gen import generate_quiz_items     # Quiz generator (new module)
+from backend.database import init_db, get_db, hash_password, verify_password, generate_id
 
 
 app = FastAPI(title="K-12 RAG Tutor API")
+
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    init_db()
 
 # === CORS (allow your React dev server; tighten in prod) ===
 app.add_middleware(
@@ -204,6 +211,41 @@ class QuizGradePayload(BaseModel):
     items: List[Dict[str, Any]]
     # User selections
     answers: List[QuizAnswer]
+    # Optional: student_id for tracking
+    student_id: Optional[str] = None
+
+
+# === Authentication Payloads ===
+class SignupPayload(BaseModel):
+    email: str
+    password: str
+    name: str
+    role: str  # "student" or "parent"
+    grade: Optional[int] = None  # Required for students
+    parent_email: Optional[str] = None  # For linking student to parent
+
+
+class LoginPayload(BaseModel):
+    email: str
+    password: str
+    role: str  # "student" or "parent"
+
+
+class LinkAccountPayload(BaseModel):
+    parent_id: str
+    student_email: str
+
+
+class QuizTrackingPayload(BaseModel):
+    student_id: str
+    topic: str
+    grade: int
+    difficulty: str
+    total_questions: int
+    correct_answers: int
+    score_percentage: float
+    quiz_items: List[Dict[str, Any]]
+    answers: List[Dict[str, Any]]
 
 
 # === Tutor endpoint ===
@@ -280,3 +322,262 @@ async def quiz_grade(payload: QuizGradePayload):
             "results": [],
             "error": f"Quiz grading failed: {e}"
         }
+
+
+# === Authentication endpoints ===
+@app.post("/auth/signup")
+async def signup(payload: SignupPayload):
+    """Sign up a new user (student or parent)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Check if email already exists
+        cursor.execute("SELECT id FROM users WHERE email = ?", (payload.email,))
+        if cursor.fetchone():
+            return {"error": "Email already registered", "success": False}
+        
+        # Validate student requirements
+        if payload.role == "student" and not payload.grade:
+            return {"error": "Grade is required for students", "success": False}
+        
+        # Create user
+        user_id = generate_id()
+        password_hash = hash_password(payload.password)
+        
+        # Link to parent if parent_email provided
+        parent_id = None
+        if payload.parent_email:
+            cursor.execute("SELECT id FROM users WHERE email = ? AND role = 'parent'", (payload.parent_email,))
+            parent = cursor.fetchone()
+            if parent:
+                parent_id = parent["id"]
+        
+        cursor.execute(
+            """INSERT INTO users (id, email, password_hash, name, role, grade, parent_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, payload.email, password_hash, payload.name, payload.role, payload.grade, parent_id)
+        )
+        
+        # Create parent-student link if parent_email provided
+        if parent_id:
+            link_id = generate_id()
+            cursor.execute(
+                "INSERT INTO parent_student_links (id, parent_id, student_id) VALUES (?, ?, ?)",
+                (link_id, parent_id, user_id)
+            )
+        
+        conn.commit()
+        
+        # Return user (without password)
+        cursor.execute("SELECT id, email, name, role, grade FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        
+        return {
+            "success": True,
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "name": user["name"],
+                "role": user["role"],
+                "grade": user["grade"]
+            }
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.post("/auth/login")
+async def login(payload: LoginPayload):
+    """Login user"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            "SELECT id, email, password_hash, name, role, grade FROM users WHERE email = ? AND role = ?",
+            (payload.email, payload.role)
+        )
+        user = cursor.fetchone()
+        
+        if not user:
+            return {"error": "Invalid email or role", "success": False}
+        
+        if not verify_password(payload.password, user["password_hash"]):
+            return {"error": "Invalid password", "success": False}
+        
+        return {
+            "success": True,
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "name": user["name"],
+                "role": user["role"],
+                "grade": user["grade"]
+            }
+        }
+    except Exception as e:
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.post("/auth/link-account")
+async def link_account(payload: LinkAccountPayload):
+    """Link a student account to a parent account"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Get student by email
+        cursor.execute("SELECT id FROM users WHERE email = ? AND role = 'student'", (payload.student_email,))
+        student = cursor.fetchone()
+        
+        if not student:
+            return {"error": "Student not found", "success": False}
+        
+        student_id = student["id"]
+        
+        # Check if link already exists
+        cursor.execute(
+            "SELECT id FROM parent_student_links WHERE parent_id = ? AND student_id = ?",
+            (payload.parent_id, student_id)
+        )
+        if cursor.fetchone():
+            return {"error": "Account already linked", "success": False}
+        
+        # Create link
+        link_id = generate_id()
+        cursor.execute(
+            "INSERT INTO parent_student_links (id, parent_id, student_id) VALUES (?, ?, ?)",
+            (link_id, payload.parent_id, student_id)
+        )
+        
+        # Update student's parent_id
+        cursor.execute("UPDATE users SET parent_id = ? WHERE id = ?", (payload.parent_id, student_id))
+        
+        conn.commit()
+        return {"success": True, "message": "Account linked successfully"}
+    except Exception as e:
+        conn.rollback()
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.get("/auth/students/{parent_id}")
+async def get_linked_students(parent_id: str):
+    """Get all students linked to a parent"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT u.id, u.email, u.name, u.grade
+            FROM users u
+            INNER JOIN parent_student_links psl ON u.id = psl.student_id
+            WHERE psl.parent_id = ?
+        """, (parent_id,))
+        
+        students = [dict(row) for row in cursor.fetchall()]
+        return {"success": True, "students": students}
+    except Exception as e:
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+# === Quiz tracking endpoints ===
+@app.post("/quiz/track")
+async def track_quiz(payload: QuizTrackingPayload):
+    """Track a quiz attempt"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        attempt_id = generate_id()
+        cursor.execute("""
+            INSERT INTO quiz_attempts 
+            (id, student_id, quiz_topic, quiz_grade, quiz_difficulty, total_questions, 
+             correct_answers, score_percentage, quiz_items, answers)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            attempt_id,
+            payload.student_id,
+            payload.topic,
+            payload.grade,
+            payload.difficulty,
+            payload.total_questions,
+            payload.correct_answers,
+            payload.score_percentage,
+            json.dumps(payload.quiz_items),
+            json.dumps(payload.answers)
+        ))
+        
+        conn.commit()
+        return {"success": True, "attempt_id": attempt_id}
+    except Exception as e:
+        conn.rollback()
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.get("/stats/student/{student_id}")
+async def get_student_stats(student_id: str):
+    """Get statistics for a student"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Quiz statistics
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_quizzes,
+                AVG(score_percentage) as avg_score,
+                SUM(correct_answers) as total_correct,
+                SUM(total_questions) as total_questions,
+                MAX(completed_at) as last_quiz_date
+            FROM quiz_attempts
+            WHERE student_id = ?
+        """, (student_id,))
+        quiz_stats = dict(cursor.fetchone() or {})
+        
+        # S1 sessions count
+        cursor.execute("SELECT COUNT(*) as count FROM s1_sessions WHERE student_id = ?", (student_id,))
+        s1_count = cursor.fetchone()["count"] or 0
+        
+        # S2 sessions count
+        cursor.execute("SELECT COUNT(*) as count FROM s2_sessions WHERE student_id = ?", (student_id,))
+        s2_count = cursor.fetchone()["count"] or 0
+        
+        # Recent quiz attempts
+        cursor.execute("""
+            SELECT topic, score_percentage, completed_at, total_questions, correct_answers
+            FROM quiz_attempts
+            WHERE student_id = ?
+            ORDER BY completed_at DESC
+            LIMIT 10
+        """, (student_id,))
+        recent_quizzes = [dict(row) for row in cursor.fetchall()]
+        
+        return {
+            "success": True,
+            "stats": {
+                "total_quizzes": quiz_stats.get("total_quizzes", 0) or 0,
+                "avg_score": round(quiz_stats.get("avg_score", 0) or 0, 2),
+                "total_correct": quiz_stats.get("total_correct", 0) or 0,
+                "total_questions": quiz_stats.get("total_questions", 0) or 0,
+                "accuracy": round((quiz_stats.get("total_correct", 0) or 0) / max(quiz_stats.get("total_questions", 1) or 1, 1) * 100, 2),
+                "s1_sessions": s1_count,
+                "s2_sessions": s2_count,
+                "recent_quizzes": recent_quizzes
+            }
+        }
+    except Exception as e:
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()

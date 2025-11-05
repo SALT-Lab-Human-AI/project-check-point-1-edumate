@@ -2,8 +2,8 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useApp } from "@/store/app-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,9 +14,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
   const { login } = useApp()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams?.get("signup") === "success") {
+      setSuccess("Account created successfully! Please log in.")
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,6 +97,11 @@ export default function LoginPage() {
               />
             </div>
 
+            {success && (
+              <div className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg p-3">
+                {success}
+              </div>
+            )}
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">{error}</div>
             )}
@@ -98,7 +111,12 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="text-xs text-text/60 text-center mt-6">Demo: Use any email/password to log in</p>
+          <p className="text-xs text-text/60 text-center mt-6">
+            Don't have an account?{" "}
+            <a href="/signup" className="text-primary hover:underline">
+              Sign up
+            </a>
+          </p>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import * as apiService from "@/lib/api-service"
 
 interface User {
   id: string
@@ -56,19 +57,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string, role: "student" | "parent") => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    try {
+      const response = await apiService.login({ email, password, role })
+      
+      if (!response.success || !response.user) {
+        throw new Error(response.error || "Login failed")
+      }
 
-    const mockUser: User = {
-      id: "1",
-      email,
-      name: role === "student" ? "Alex Johnson" : "Sarah Johnson",
-      role,
-      grade: role === "student" ? 8 : undefined,
+      const user: User = {
+        id: response.user.id,
+        email: response.user.email,
+        name: response.user.name,
+        role: response.user.role,
+        grade: response.user.grade,
+      }
+
+      setUser(user)
+      localStorage.setItem("edumate_user", JSON.stringify(user))
+    } catch (error) {
+      console.error("Login error:", error)
+      throw error
     }
-
-    setUser(mockUser)
-    localStorage.setItem("edumate_user", JSON.stringify(mockUser))
   }
 
   const logout = () => {
