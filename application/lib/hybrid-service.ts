@@ -83,9 +83,154 @@ Return ONLY the question with proper formatting, nothing else.`
   return cleanedAnswer
 }
 
+// Helper function to parse structured solution into sections
+function parseStructuredSolution(solution: string): {
+  understandTheProblem: string
+  strategy: string
+  stepByStepSolution: string
+  verifyTheAnswer: string
+  alternateMethods: string
+} {
+  const sections = {
+    understandTheProblem: "",
+    strategy: "",
+    stepByStepSolution: "",
+    verifyTheAnswer: "",
+    alternateMethods: ""
+  }
+
+  const lines = solution.split('\n')
+  let currentSection = ""
+  let content: string[] = []
+
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    
+    // Check for section headers
+    if (trimmedLine.includes('### Understand the Problem') || trimmedLine.includes('Understand the Problem')) {
+      if (currentSection && content.length > 0) {
+        sections[currentSection as keyof typeof sections] = content.join('\n').trim()
+      }
+      currentSection = "understandTheProblem"
+      content = []
+    } else if (trimmedLine.includes('### Strategy') || trimmedLine.includes('Strategy')) {
+      if (currentSection && content.length > 0) {
+        sections[currentSection as keyof typeof sections] = content.join('\n').trim()
+      }
+      currentSection = "strategy"
+      content = []
+    } else if (trimmedLine.includes('### Step-by-Step Solution') || trimmedLine.includes('Step-by-Step Solution')) {
+      if (currentSection && content.length > 0) {
+        sections[currentSection as keyof typeof sections] = content.join('\n').trim()
+      }
+      currentSection = "stepByStepSolution"
+      content = []
+    } else if (trimmedLine.includes('### Verify the Answer') || trimmedLine.includes('Verify the Answer')) {
+      if (currentSection && content.length > 0) {
+        sections[currentSection as keyof typeof sections] = content.join('\n').trim()
+      }
+      currentSection = "verifyTheAnswer"
+      content = []
+    } else if (trimmedLine.includes('### Alternate Methods') || trimmedLine.includes('Alternate Methods')) {
+      if (currentSection && content.length > 0) {
+        sections[currentSection as keyof typeof sections] = content.join('\n').trim()
+      }
+      currentSection = "alternateMethods"
+      content = []
+    } else if (currentSection && !trimmedLine.startsWith('###')) {
+      content.push(line)
+    }
+  }
+
+  // Add the last section
+  if (currentSection && content.length > 0) {
+    sections[currentSection as keyof typeof sections] = content.join('\n').trim()
+  }
+
+  return sections
+}
+
+// Helper function to check if strategy and step-by-step solution are merged
+function areSectionsMerged(strategy: string, stepByStepSolution: string): boolean {
+  // If strategy is empty or step-by-step is empty, they can't be merged
+  if (!strategy.trim() || !stepByStepSolution.trim()) {
+    return false
+  }
+  
+  // Check if step-by-step solution starts with high-level strategy language
+  // Strategy typically uses words like "approach", "method", "we'll", "strategy"
+  // Step-by-step should start with "Step 1", numbered steps, or calculations
+  const stepByStepLower = stepByStepSolution.toLowerCase().trim()
+  const strategyLower = strategy.toLowerCase().trim()
+  
+  // Check if step-by-step starts with strategy-like language (not step-like)
+  const stepByStepFirst = stepByStepLower.substring(0, Math.min(150, stepByStepLower.length))
+  const strategyFirst = strategyLower.substring(0, Math.min(150, strategyLower.length))
+  
+  // If step-by-step doesn't start with step indicators, it might be merged
+  const hasStepIndicators = /^(step\s*\d+|first|second|third|1\.|2\.|3\.|we\s+start|we\s+begin|substitute|calculate|solve)/i.test(stepByStepFirst)
+  
+  // If step-by-step starts with strategy-like language, likely merged
+  const startsWithStrategyLanguage = /^(we\s+will|we\s+can|the\s+approach|the\s+strategy|we'll\s+use|this\s+problem|to\s+solve|we\s+need)/i.test(stepByStepFirst)
+  
+  // Check similarity between first parts
+  if (stepByStepFirst.length > 50 && strategyFirst.length > 50) {
+    // Simple similarity check: count common significant words
+    const stepWords = new Set(stepByStepFirst.split(/\s+/).filter(w => w.length > 3))
+    const strategyWords = new Set(strategyFirst.split(/\s+/).filter(w => w.length > 3))
+    const commonWords = [...stepWords].filter(w => strategyWords.has(w))
+    const similarity = commonWords.length / Math.max(stepWords.size, strategyWords.size, 1)
+    
+    // If high similarity AND step-by-step doesn't have step indicators, likely merged
+    if (similarity > 0.4 && !hasStepIndicators) {
+      return true
+    }
+  }
+  
+  // If step-by-step starts with strategy language and doesn't have step indicators, likely merged
+  if (startsWithStrategyLanguage && !hasStepIndicators) {
+    return true
+  }
+  
+  return false
+}
+
+// Helper function to validate solution structure
+function validateSolution(sections: ReturnType<typeof parseStructuredSolution>): {
+  isValid: boolean
+  missingSections: string[]
+  mergedSections: string[]
+} {
+  const missingSections: string[] = []
+  const mergedSections: string[] = []
+  
+  // Check for missing sections
+  if (!sections.understandTheProblem.trim()) {
+    missingSections.push('Understand the Problem')
+  }
+  if (!sections.strategy.trim()) {
+    missingSections.push('Strategy')
+  }
+  if (!sections.stepByStepSolution.trim()) {
+    missingSections.push('Step-by-Step Solution')
+  }
+  if (!sections.verifyTheAnswer.trim()) {
+    missingSections.push('Verify the Answer')
+  }
+  // Alternate Methods can be empty, but should say "No other alternative methods available." if none
+  
+  // Check if strategy and step-by-step are merged
+  if (areSectionsMerged(sections.strategy, sections.stepByStepSolution)) {
+    mergedSections.push('Strategy and Step-by-Step Solution are merged')
+  }
+  
+  const isValid = missingSections.length === 0 && mergedSections.length === 0
+  
+  return { isValid, missingSections, mergedSections }
+}
+
 export async function solveS1(payload: { grade: number; topic: string; question: string }) {
-  // Create a structured prompt for educational step-by-step solutions
-  const prompt = `You are a math tutor providing a comprehensive, educational solution. 
+  const basePrompt = `You are a math tutor providing a comprehensive, educational solution. 
 
 PROBLEM: ${payload.question}
 
@@ -104,7 +249,7 @@ Please provide a solution in this EXACT structured format:
 [Show how to check that the answer is correct by substituting back]
 
 ### Alternate Methods
-[Provide alternative approaches or ways to think about the problem]
+[Provide alternative approaches or ways to think about the problem. If there are no alternative methods, write exactly: "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."]
 
 IMPORTANT:
 - Use clear, educational language appropriate for grade ${payload.grade}
@@ -112,6 +257,8 @@ IMPORTANT:
 - Make each section comprehensive and helpful
 - Use proper mathematical notation
 - Do not skip any sections
+- Strategy and Step-by-Step Solution MUST be separate sections - do NOT merge them
+- Strategy should explain the general approach, Step-by-Step Solution should show detailed calculations
 - Do NOT use emojis or special characters
 - Use clean, professional formatting
 - Write in a clear, easy-to-understand style
@@ -131,12 +278,145 @@ IMPORTANT:
 - NEVER generate text with spaces between individual letters (like "T h i s" or "G r a p h i c a l")
 - Write all text as normal words with proper spacing
 - Do NOT break up words character by character
-- Ensure all text flows naturally and is readable`
+- Ensure all text flows naturally and is readable
+- For Alternate Methods: If there are no alternative methods, write exactly "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."`
 
-  const response = await apiService.askQuestion(prompt, payload.grade)
+  let response = await apiService.askQuestion(basePrompt, payload.grade)
+  let solution = response.answer
+  let retryCount = 0
+  const maxRetries = 5
+  
+  // Feedback loop: validate and retry if needed
+  while (retryCount < maxRetries) {
+    const parsedSections = parseStructuredSolution(solution)
+    const validation = validateSolution(parsedSections)
+    
+    // Check alternate methods - should be "No other alternative methods available." if empty
+    const alternateMethodsText = parsedSections.alternateMethods.trim()
+    const alternateMethodsLower = alternateMethodsText.toLowerCase()
+    const placeholderText = "no other alternative methods available."
+    
+    // Check if there are actual alternative methods (not just placeholder, and not ending with placeholder)
+    const hasAlternateMethods = alternateMethodsText && 
+                                alternateMethodsLower !== placeholderText &&
+                                alternateMethodsText.length > 10 &&
+                                !alternateMethodsLower.endsWith(placeholderText)
+    
+    // Check if it's valid: either has actual methods OR is exactly the placeholder
+    const alternateMethodsValid = hasAlternateMethods || alternateMethodsLower === placeholderText
+    
+    // If validation passes and alternate methods is handled correctly, break
+    if (validation.isValid && alternateMethodsValid) {
+      break
+    }
+    
+    retryCount++
+    
+    // Build retry prompt with specific instructions
+    let retryPrompt = `You are a math tutor providing a comprehensive, educational solution. 
+
+PROBLEM: ${payload.question}
+
+CRITICAL: Your previous response had issues. You MUST fix them now.
+
+`
+    
+    if (validation.missingSections.length > 0) {
+      retryPrompt += `MISSING SECTIONS: The following sections were empty or missing:\n${validation.missingSections.map(s => `- ${s}`).join('\n')}\n\nYou MUST provide content for ALL of these sections.\n\n`
+    }
+    
+    if (validation.mergedSections.length > 0) {
+      retryPrompt += `MERGED SECTIONS: ${validation.mergedSections.join(', ')}\n\nYou MUST separate Strategy and Step-by-Step Solution:\n`
+      retryPrompt += `- Strategy section should explain the GENERAL APPROACH and reasoning\n`
+      retryPrompt += `- Step-by-Step Solution section should show DETAILED CALCULATIONS and specific steps\n`
+      retryPrompt += `- These are TWO DIFFERENT sections - do NOT combine them\n\n`
+    }
+    
+    if (!alternateMethodsValid) {
+      if (alternateMethodsText && alternateMethodsLower.endsWith(placeholderText) && alternateMethodsText.length > placeholderText.length + 10) {
+        retryPrompt += `ALTERNATE METHODS: You provided alternative methods but also included "No other alternative methods available." at the end. If you provide alternative methods, do NOT include the "No other alternative methods available." text. Only use "No other alternative methods available." if there are truly no alternative methods.\n\n`
+      } else {
+        retryPrompt += `ALTERNATE METHODS: This section was empty or unclear. If there are no alternative methods, write exactly: "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."\n\n`
+      }
+    }
+    
+    retryPrompt += `Please provide a solution in this EXACT structured format:
+
+### Understand the Problem
+[Explain what the problem is asking, what we know, and what we need to find]
+
+### Strategy
+[Explain the general approach and reasoning for solving this type of problem - this is HIGH-LEVEL approach, NOT detailed steps]
+
+### Step-by-Step Solution
+[Provide detailed steps with clear explanations for each step - this is WHERE you show calculations and work]
+
+### Verify the Answer
+[Show how to check that the answer is correct by substituting back]
+
+### Alternate Methods
+[Provide alternative approaches or ways to think about the problem. If there are no alternative methods, write exactly: "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."]
+
+CRITICAL REQUIREMENTS:
+- ALL sections must have content - none can be empty
+- Strategy and Step-by-Step Solution MUST be completely separate
+- Strategy = general approach (e.g., "We'll use substitution method")
+- Step-by-Step Solution = detailed calculations (e.g., "Step 1: Substitute x = 5 into equation...")
+- Use clear, educational language appropriate for grade ${payload.grade}
+- Do NOT use emojis or special characters
+- Use clean, professional formatting
+- For Alternate Methods: If there are no alternative methods, write exactly "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."`
+
+    response = await apiService.askQuestion(retryPrompt, payload.grade)
+    solution = response.answer
+    
+    // Log for debugging
+    console.log(`[S1 Feedback Loop] Attempt ${retryCount}: Validation issues - Missing: ${validation.missingSections.join(', ') || 'none'}, Merged: ${validation.mergedSections.join(', ') || 'none'}`)
+  }
+  
+  // Final validation check
+  const finalParsed = parseStructuredSolution(solution)
+  const finalValidation = validateSolution(finalParsed)
+  
+  if (!finalValidation.isValid) {
+    console.warn(`[S1 Feedback Loop] WARNING: After ${retryCount} retries, still have issues - Missing: ${finalValidation.missingSections.join(', ') || 'none'}, Merged: ${finalValidation.mergedSections.join(', ') || 'none'}`)
+  }
+  
+  // Clean up alternate methods section
+  const alternateMethodsText = finalParsed.alternateMethods.trim()
+  const alternateMethodsLower = alternateMethodsText.toLowerCase()
+  const placeholderText = "no other alternative methods available."
+  
+  // Check if there are actual alternative methods (not just placeholder)
+  const hasActualMethods = alternateMethodsText && 
+                          alternateMethodsLower !== placeholderText &&
+                          alternateMethodsText.length > 10 &&
+                          !alternateMethodsLower.endsWith(placeholderText)
+  
+  // If the text ends with the placeholder but has content before it, remove the trailing placeholder
+  if (alternateMethodsText && alternateMethodsLower.endsWith(placeholderText) && alternateMethodsText.length > placeholderText.length + 10) {
+    // Remove trailing placeholder text (case-insensitive)
+    const cleanedText = alternateMethodsText.replace(new RegExp(`\\s*${placeholderText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i'), '').trim()
+    
+    // Replace the alternate methods section with cleaned text
+    const alternateMethodsPattern = /(###\s*Alternate\s*Methods\s*\n?)[\s\S]*?(?=\n###|$)/i
+    if (alternateMethodsPattern.test(solution)) {
+      solution = solution.replace(alternateMethodsPattern, `$1${cleanedText}`)
+    }
+  } else if (!hasActualMethods) {
+    // No actual alternative methods - replace with placeholder
+    const alternateMethodsPattern = /(###\s*Alternate\s*Methods\s*\n?)[\s\S]*?(?=\n###|$)/i
+    if (alternateMethodsPattern.test(solution)) {
+      solution = solution.replace(alternateMethodsPattern, '$1No other alternative methods available.')
+    } else {
+      // If section doesn't exist, add it
+      solution += '\n\n### Alternate Methods\nNo other alternative methods available.'
+    }
+  }
+  // If hasActualMethods is true and doesn't end with placeholder, keep the original text as-is
   
   return {
-    solution: response.answer,
+    solution: solution,
     steps: [], // The API returns a complete structured solution
     hints: []
   }
