@@ -6,7 +6,7 @@ from backend.rag_groq_bot import collection, get_embed_model, client, GROQ_MODEL
 
 
 def _normalize_latex(md: str) -> str:
-    """Convert \[...\] -> $$...$$ and \(...\) -> $...$ for KaTeX on the frontend."""
+    r"""Convert \[...\] -> $$...$$ and \(...\) -> $...$ for KaTeX on the frontend."""
     if not md:
         return md
     

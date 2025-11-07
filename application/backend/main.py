@@ -18,12 +18,22 @@ app = FastAPI(title="K-12 RAG Tutor API")
 # Initialize database on startup
 @app.on_event("startup")
 async def startup_event():
-    init_db()
+    # Don't fail startup if DB connection fails - will retry on first request
+    # This allows the app to bind to port even if DB is temporarily unavailable
+    try:
+        init_db()
+        print("Database initialized successfully on startup")
+    except Exception as e:
+        print(f"Warning: Database initialization deferred: {e}")
+        print("Will retry on first database request")
+    
     # Initialize vector table (but don't load model or populate data yet)
     try:
         init_vector_table()
+        print("Vector table initialized successfully on startup")
     except Exception as e:
         print(f"Warning: Could not initialize vector table on startup: {e}")
+        print("Will retry on first vector operation")
 
 # === CORS (allow your React dev server; tighten in prod) ===
 app.add_middleware(

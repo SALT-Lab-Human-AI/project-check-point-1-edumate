@@ -24,14 +24,29 @@ if not DATABASE_URL:
 _pool = None
 
 def get_pool():
-    """Get or create connection pool"""
+    """Get or create connection pool with retry logic for network issues"""
     global _pool
     if _pool is None:
-        _pool = SimpleConnectionPool(
-            minconn=1,
-            maxconn=10,
-            dsn=DATABASE_URL
-        )
+        try:
+            _pool = SimpleConnectionPool(
+                minconn=1,
+                maxconn=10,
+                dsn=DATABASE_URL
+            )
+        except Exception as e:
+            print(f"Error creating connection pool: {e}")
+            # Try to create a single connection to test and get better error message
+            try:
+                test_conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+                test_conn.close()
+                # If test succeeds, retry pool creation
+                _pool = SimpleConnectionPool(
+                    minconn=1,
+                    maxconn=10,
+                    dsn=DATABASE_URL
+                )
+            except Exception as e2:
+                raise Exception(f"Database connection failed: {e2}. Please check your DATABASE_URL and network connectivity.")
     return _pool
 
 def get_db():
@@ -52,7 +67,12 @@ def return_db(conn):
 
 def init_db():
     """Initialize database tables and extensions"""
-    conn = get_db()
+    try:
+        conn = get_db()
+    except Exception as e:
+        print(f"Error getting database connection: {e}")
+        raise
+    
     cursor = conn.cursor()
     
     try:

@@ -146,7 +146,13 @@ If you encounter CORS errors:
 
 ### Backend Issues
 
-- **Database connection errors**: Verify `DATABASE_URL` is correct in Render environment variables
+- **Database connection errors**: 
+  - Verify `DATABASE_URL` is correct in Render environment variables
+  - If you see "Network is unreachable" (IPv6 errors), try using Supabase's **Connection Pooling** URL instead:
+    - Go to Supabase Dashboard → Settings → Database
+    - Use the **Connection Pooling** connection string (port 6543) instead of direct connection (port 5432)
+    - Format: `postgresql://postgres:[PASSWORD]@[PROJECT-REF].supabase.co:6543/postgres?pgbouncer=true`
+  - The app now handles connection errors gracefully during startup
 - **Vector table not found**: Check that pgvector extension is enabled in Supabase
 - **Slow first request**: Normal - database initialization happens on first request
 - **Out of memory (512MB)**: The code now uses lazy loading for ML models to reduce memory usage. If you still see this error:
