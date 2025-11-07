@@ -39,7 +39,9 @@ EduMate is a K-12 AI-powered tutoring platform that combines:
 
 ### Backend Components
 
-<img src="Backend%20Components.png" alt="Backend Components" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
+<div style="width: 100%; overflow-x: auto; overflow-y: visible;">
+  <img src="Backend%20Components.png" alt="Backend Components" style="width: auto; height: auto; max-width: none; display: block; object-fit: contain;" />
+</div>
 
 ---
 
@@ -47,11 +49,15 @@ EduMate is a K-12 AI-powered tutoring platform that combines:
 
 ### Tutor Question Flow (S1 & S2)
 
-<img src="Tutor%20Question%20Flow%20(S1%20%26%20S2).png" alt="Tutor Question Flow (S1 & S2)" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
+<div style="width: 100%; overflow-x: auto; overflow-y: visible;">
+  <img src="Tutor%20Question%20Flow%20(S1%20%26%20S2).png" alt="Tutor Question Flow (S1 & S2)" style="width: auto; height: auto; max-width: none; display: block; object-fit: contain;" />
+</div>
 
 ### Quiz Generation Flow (S3)
 
-<img src="Quiz%20Generation%20Flow%20(S3).png" alt="Quiz Generation Flow (S3)" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
+<div style="width: 100%; overflow-x: auto; overflow-y: visible;">
+  <img src="Quiz%20Generation%20Flow%20(S3).png" alt="Quiz Generation Flow (S3)" style="width: auto; height: auto; max-width: none; display: block; object-fit: contain;" />
+</div>
 
 ### Authentication & Session Flow
 
@@ -101,7 +107,9 @@ EduMate is a K-12 AI-powered tutoring platform that combines:
 
 ### Core Tables
 
-<img src="Core%20Tables.png" alt="Core Tables" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
+<div style="width: 100%; overflow-x: auto; overflow-y: visible;">
+  <img src="Core%20Tables.png" alt="Core Tables" style="width: auto; height: auto; max-width: none; display: block; object-fit: contain;" />
+</div>
 
 ### Vector Store Schema
 
