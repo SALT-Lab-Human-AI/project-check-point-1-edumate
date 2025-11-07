@@ -23,7 +23,7 @@ interface ParsedFeedback {
   generalTips: string[]
 }
 
-function parseFeedbackMarkdown(feedback: string): ParsedFeedback {
+function parseFeedbackMarkdown(feedback: string, mode: "hints" | "direct" = "hints"): ParsedFeedback {
   const lines = feedback.split('\n')
   
   const result: ParsedFeedback = {
@@ -39,6 +39,7 @@ function parseFeedbackMarkdown(feedback: string): ParsedFeedback {
   let tableRows: string[][] = []
   let currentSection = ""
   let finalAnswer = ""
+  let hasCorrectWorkColumn = true // Default to true, will be detected from table header
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
@@ -78,17 +79,26 @@ function parseFeedbackMarkdown(feedback: string): ParsedFeedback {
     }
     
     // Check for step headers (| Step | Student Work | ...)
-    if (line.startsWith('| Step |') || line.startsWith('| Step |')) {
+    if (line.startsWith('| Step |')) {
       inTable = true
       tableRows = []
+      // Detect if table has "Correct Work" column
+      hasCorrectWorkColumn = line.includes('Correct Work')
       continue
     }
     
     // Process table rows
     if (inTable && line.startsWith('|')) {
       const cells = line.split('|').map(c => c.trim()).filter(c => c)
-      // Skip separator rows (rows with only dashes) and rows with insufficient data
-      if (cells.length >= 5 && !cells.every(cell => cell.match(/^-+$/))) {
+      // Skip separator rows (rows with only dashes)
+      if (cells.every(cell => cell.match(/^-+$/))) {
+        continue
+      }
+      
+      // In hint mode, table should have 4 columns (Step, Student Work, Status, Explanation)
+      // In direct mode, table should have 5 columns (Step, Student Work, Correct Work, Status, Explanation)
+      const minCells = mode === "hints" ? 4 : 5
+      if (cells.length >= minCells) {
         tableRows.push(cells)
       }
       continue
@@ -101,11 +111,25 @@ function parseFeedbackMarkdown(feedback: string): ParsedFeedback {
       // Process the table data
       if (currentProblem && tableRows.length > 0) {
         tableRows.forEach((row, index) => {
-          const step = row[0] || `Step ${index + 1}`
-          const studentWork = row[1] || ""
-          const correctWork = row[2] || ""
-          const status = row[3] || "Correct"
-          const explanation = row[4] || ""
+          // In hint mode: Step, Student Work, Status, Explanation (4 columns)
+          // In direct mode: Step, Student Work, Correct Work, Status, Explanation (5 columns)
+          let step, studentWork, correctWork, status, explanation
+          
+          if (mode === "hints" || !hasCorrectWorkColumn) {
+            // Table without Correct Work column
+            step = row[0] || `Step ${index + 1}`
+            studentWork = row[1] || ""
+            status = row[2] || "Correct"
+            explanation = row[3] || ""
+            correctWork = "" // No correct work in hint mode
+          } else {
+            // Table with Correct Work column
+            step = row[0] || `Step ${index + 1}`
+            studentWork = row[1] || ""
+            correctWork = row[2] || ""
+            status = row[3] || "Correct"
+            explanation = row[4] || ""
+          }
           
           // Skip steps with empty or dash-only content
           if (!studentWork || studentWork.match(/^-+$/) || studentWork.trim() === "") {
@@ -122,7 +146,7 @@ function parseFeedbackMarkdown(feedback: string): ParsedFeedback {
           currentProblem.steps.push({
             step,
             studentWork,
-            correctWork,
+            correctWork: mode === "hints" ? "" : correctWork, // Don't store correct work in hint mode
             explanation,
             status: stepStatus
           })
@@ -182,10 +206,11 @@ function parseFeedbackMarkdown(feedback: string): ParsedFeedback {
 
 interface FeedbackDisplayProps {
   feedback: string
+  mode?: "hints" | "direct"
 }
 
-export function FeedbackDisplay({ feedback }: FeedbackDisplayProps) {
-  const parsed = parseFeedbackMarkdown(feedback)
+export function FeedbackDisplay({ feedback, mode = "hints" }: FeedbackDisplayProps) {
+  const parsed = parseFeedbackMarkdown(feedback, mode)
   
   return (
     <div className="space-y-6">
@@ -214,16 +239,6 @@ export function FeedbackDisplay({ feedback }: FeedbackDisplayProps) {
           </div>
         </div>
       </div>
-
-      {/* Final Answer Section */}
-      {parsed.problems.length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Final Answer</h3>
-          <div className="text-xl font-semibold text-gray-800">
-            <MathRenderer>{parsed.problems[0].steps[parsed.problems[0].steps.length - 1]?.studentWork || "Your answer"}</MathRenderer>
-          </div>
-        </Card>
-      )}
 
       {/* Problems */}
       {parsed.problems.map((problem, problemIndex) => (
@@ -268,7 +283,8 @@ export function FeedbackDisplay({ feedback }: FeedbackDisplayProps) {
                         </span>
                       </div>
                       
-                      {step.studentWork !== step.correctWork && step.correctWork && (
+                      {/* Only show correct work in direct mode, and only if it's different from student work */}
+                      {mode === "direct" && step.studentWork !== step.correctWork && step.correctWork && (
                         <div>
                           <span className="text-sm font-medium text-gray-600">Correct: </span>
                           <span className="font-semibold text-green-700">

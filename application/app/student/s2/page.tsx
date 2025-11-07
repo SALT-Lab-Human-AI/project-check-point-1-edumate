@@ -138,54 +138,6 @@ export default function S2Page() {
               </div>
             )}
 
-            {/* Grade and Topic Selection */}
-            <Card className="p-6 mb-6">
-              <h2 className="text-lg font-bold text-navy mb-4">Generate Question</h2>
-              <div className="grid md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <Label>Grade Level: {grade}</Label>
-                  <Slider
-                    value={[grade]}
-                    onValueChange={([v]) => setGrade(v)}
-                    min={1}
-                    max={12}
-                    step={1}
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="topic">Topic</Label>
-                  <Select value={topic} onValueChange={setTopic}>
-                    <SelectTrigger id="topic" className="mt-2">
-                      <SelectValue placeholder="Select a topic" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTopics.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleGenerateQuestion}
-                disabled={isGeneratingQuestion || !topic}
-              >
-                {isGeneratingQuestion ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating Question...
-                  </>
-                ) : (
-                  "Generate Question"
-                )}
-              </Button>
-            </Card>
-
             {/* Input Section */}
             <div className="grid lg:grid-cols-2 gap-6 mb-6">
               <Card className="p-6">
@@ -196,6 +148,54 @@ export default function S2Page() {
                     Upload
                   </Button>
                 </div>
+                
+                {/* Grade and Topic Selection - Merged into Question card */}
+                <div className="space-y-4 mb-4">
+                  <div>
+                    <Label>Grade Level: {grade}</Label>
+                    <Slider
+                      value={[grade]}
+                      onValueChange={([v]) => setGrade(v)}
+                      min={1}
+                      max={12}
+                      step={1}
+                      className="mt-2"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="topic">Topic</Label>
+                    <Select value={topic} onValueChange={setTopic}>
+                      <SelectTrigger id="topic" className="mt-2">
+                        <SelectValue placeholder="Select a topic" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTopics.map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {t}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full bg-transparent"
+                    onClick={handleGenerateQuestion}
+                    disabled={isGeneratingQuestion || !topic}
+                  >
+                    {isGeneratingQuestion ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      "Generate Question"
+                    )}
+                  </Button>
+                </div>
+                
                 <Textarea 
                   placeholder="Type or upload your math problem..." 
                   value={question}
@@ -297,7 +297,7 @@ export default function S2Page() {
                 </div>
 
                 {/* Detailed Feedback */}
-                <FeedbackDisplay feedback={feedbackData.feedback} />
+                <FeedbackDisplay feedback={feedbackData.feedback} mode={mode} />
 
                 {/* Error Analysis */}
                 {feedbackData.errors && feedbackData.errors.length > 0 && (
@@ -352,13 +352,6 @@ export default function S2Page() {
                   </div>
                 )}
 
-                {/* Final Answer (if in direct mode) */}
-                {mode === "direct" && feedbackData.finalAnswer && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 className="font-semibold text-blue-800 mb-2">Correct Answer:</h3>
-                    <div className="text-blue-700 font-mono text-lg">{feedbackData.finalAnswer}</div>
-                  </div>
-                )}
               </div>
             )}
           </Card>

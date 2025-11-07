@@ -290,12 +290,28 @@ export async function submitS2(payload: {
     : "MODE: HINTS - Do NOT reveal the final answer. Only provide hints."
   
   // Build the table rows explicitly for all steps
+  // In hint mode, don't include "Correct Work" column
+  const tableHeader = payload.mode === "hints"
+    ? "| Step | Student Work | Status | Explanation |"
+    : "| Step | Student Work | Correct Work | Status | Explanation |"
+  
+  const tableSeparator = payload.mode === "hints"
+    ? "|------|--------------|--------|-------------|"
+    : "|------|--------------|--------------|--------|-------------|"
+  
   const tableRows = Array.from({ length: actualStepCount }, (_, i) => {
     const stepNum = i + 1
     const stepContent = hasExtractedSteps && extractedSteps[i] 
       ? extractedSteps[i].substring(0, 100) // Limit length for prompt
       : `[student's step ${stepNum}]`
-    return `| ${stepNum} | ${stepContent} | [what it should be] | Correct/Incorrect | [brief explanation] |`
+    
+    if (payload.mode === "hints") {
+      // In hint mode, don't include correct work - just provide hints
+      return `| ${stepNum} | ${stepContent} | Correct/Incorrect | [brief explanation WITHOUT revealing the correct answer] |`
+    } else {
+      // In direct mode, include correct work
+      return `| ${stepNum} | ${stepContent} | [what it should be] | Correct/Incorrect | [brief explanation] |`
+    }
   }).join('\n')
   
   let prompt = `You are a math tutor providing feedback on a student's solution. 
@@ -312,12 +328,28 @@ You MUST provide feedback for ALL ${actualStepCount} step(s).
 DO NOT skip any steps. DO NOT combine steps. 
 Each step must have its own row in the Problem Analysis table.
 
+MATHEMATICAL ACCURACY CHECKING - CRITICAL:
+- You MUST verify ALL numerical calculations in each step
+- Check if arithmetic operations are performed correctly (addition, subtraction, multiplication, division)
+- A step is INCORRECT if:
+  * The mathematical calculation is wrong (e.g., 700 - 600 = 200 is WRONG, should be 100)
+  * The approach/method is correct but the arithmetic is incorrect
+  * The result doesn't match the correct numerical answer
+- If a step has a calculation error, mark it as INCORRECT even if the method/approach is correct
+- Check for cascading errors: if an earlier step has a wrong value, later steps using that value will also be wrong
+- Example: If step 5 calculates 2A = 200 (but should be 100), then step 6 using A = 100 (from 200÷2) is also wrong because it's based on the incorrect value from step 5
+- You must identify BOTH the calculation error AND any subsequent steps affected by that error
+
+${payload.mode === "hints" 
+  ? "CRITICAL: In HINTS mode, you MUST NOT reveal the correct answer. Do NOT include a 'Correct Work' column. Only provide hints and explanations that guide the student without giving away the answer. However, you MUST still mark steps as INCORRECT if the math is wrong."
+  : "In DIRECT mode, you should include the correct work for each step."}
+
 Please provide feedback in this EXACT format (no emojis):
 
 ### Problem Analysis
 
-| Step | Student Work | Correct Work | Status | Explanation |
-|------|--------------|--------------|--------|-------------|
+${tableHeader}
+${tableSeparator}
 ${tableRows}
 
 ### Hints for Improvement
@@ -332,13 +364,20 @@ ${payload.mode === "direct"
 
 IMPORTANT: 
 - Do NOT include emojis or special characters
-${payload.mode === "hints" ? "- Do NOT reveal the final answer in hints mode" : "- You MUST provide the correct final answer in direct mode"}
+${payload.mode === "hints" 
+  ? "- Do NOT reveal the final answer in hints mode\n- Do NOT include a 'Correct Work' column in the table\n- Do NOT show the correct answer for any step\n- Only provide hints and guidance without revealing solutions\n- If a step is incorrect, explain what's wrong but DO NOT show what the correct answer should be" 
+  : "- You MUST provide the correct final answer in direct mode\n- Include the 'Correct Work' column showing what each step should be"}
 - You MUST analyze ALL ${actualStepCount} step(s) - this is REQUIRED, not optional
 - The Problem Analysis table MUST have exactly ${actualStepCount} rows (one for each step)
 - DO NOT combine multiple steps into one row
 - DO NOT skip any steps
-- Focus on which specific steps are wrong
-- Provide actionable hints, not solutions
+- CRITICAL: Check mathematical accuracy - verify all calculations are numerically correct
+- Mark steps as INCORRECT if the arithmetic is wrong, even if the method is correct
+- Identify cascading errors: if step N has a wrong value, mark step N+1 as incorrect if it uses that wrong value
+- Focus on which specific steps are wrong and WHY (calculation error, wrong value used, etc.)
+${payload.mode === "hints" 
+  ? "- Provide actionable hints, not solutions - guide the student without revealing answers\n- If a calculation is wrong, hint at checking the arithmetic (e.g., 'Check your subtraction here' or 'Verify this calculation')" 
+  : "- Provide clear explanations and show correct work"}
 - Use clear, simple language`
 
   let response = await apiService.askQuestion(prompt, 5)
@@ -352,13 +391,16 @@ ${payload.mode === "hints" ? "- Do NOT reveal the final answer in hints mode" : 
     while (feedbackStepCount < actualStepCount && retryCount < maxRetries) {
       retryCount++
       
-      // Build explicit table with all steps
+      // Build explicit table with all steps (no Correct Work in hint mode)
+      const retryTableHeader = "| Step | Student Work | Status | Explanation |"
+      const retryTableSeparator = "|------|--------------|--------|-------------|"
       const retryTableRows = Array.from({ length: actualStepCount }, (_, i) => {
         const stepNum = i + 1
         const stepContent = hasExtractedSteps && extractedSteps[i] 
           ? extractedSteps[i].substring(0, 100)
           : `[student's step ${stepNum}]`
-        return `| ${stepNum} | ${stepContent} | [what it should be] | Correct/Incorrect | [brief explanation] |`
+        // In hint mode, don't include correct work
+        return `| ${stepNum} | ${stepContent} | Correct/Incorrect | [brief explanation WITHOUT revealing the correct answer] |`
       }).join('\n')
       
       // Create a more explicit prompt asking for all steps
@@ -374,6 +416,16 @@ MODE: HINTS - Do NOT reveal the final answer. Only provide hints.
 CRITICAL ERROR: The student's solution has EXACTLY ${actualStepCount} step(s), but your previous feedback only analyzed ${feedbackStepCount} step(s). 
 This is INCORRECT. You MUST analyze ALL ${actualStepCount} step(s). Missing steps is NOT acceptable.
 
+CRITICAL: In HINTS mode, you MUST NOT reveal correct answers. Do NOT include a 'Correct Work' column. Do NOT show what the correct answer should be.
+
+MATHEMATICAL ACCURACY CHECKING - CRITICAL:
+- You MUST verify ALL numerical calculations in each step
+- Check if arithmetic operations are performed correctly
+- A step is INCORRECT if the mathematical calculation is wrong, even if the method is correct
+- Example: If a student writes "700 - 600 = 200", this is WRONG (should be 100) and must be marked as INCORRECT
+- Check for cascading errors: if step N has a wrong value, step N+1 using that value is also wrong
+- Mark ALL steps with calculation errors as INCORRECT, not just the approach
+
 The student's solution has these ${actualStepCount} steps:
 ${hasExtractedSteps ? extractedSteps.map((step, idx) => `${idx + 1}. ${step.substring(0, 150)}`).join('\n') : 'See the full solution above.'}
 
@@ -383,8 +435,8 @@ Please provide feedback in this EXACT format (no emojis):
 
 ### Problem Analysis
 
-| Step | Student Work | Correct Work | Status | Explanation |
-|------|--------------|--------------|--------|-------------|
+${retryTableHeader}
+${retryTableSeparator}
 ${retryTableRows}
 
 ### Hints for Improvement
@@ -398,14 +450,21 @@ Answer will be provided after you try again
 CRITICAL REQUIREMENTS: 
 - Do NOT include emojis or special characters
 - Do NOT reveal the final answer in hints mode
+- Do NOT include a 'Correct Work' column in the table
+- Do NOT show the correct answer for any step - only provide hints
+- If a step is incorrect, explain what's wrong but DO NOT show what the correct answer should be
 - The Problem Analysis table MUST have exactly ${actualStepCount} rows
 - You analyzed ${feedbackStepCount} steps before - this was WRONG
 - You MUST analyze ALL ${actualStepCount} steps now - no exceptions
 - DO NOT combine steps
 - DO NOT skip steps
 - Each numbered step from the student's solution MUST have its own row
-- Focus on which specific steps are wrong
-- Provide actionable hints, not solutions
+- CRITICAL: Check mathematical accuracy - verify all calculations are numerically correct
+- Mark steps as INCORRECT if the arithmetic is wrong (e.g., 700-600=200 is WRONG, should be 100)
+- Identify cascading errors: if step N has wrong value, mark step N+1 as incorrect if it uses that value
+- Focus on which specific steps are wrong and WHY (calculation error, wrong value, etc.)
+- Provide actionable hints, not solutions - guide without revealing answers
+- If a calculation is wrong, hint at checking the arithmetic (e.g., "Check your subtraction" or "Verify this calculation")
 - Use clear, simple language`
 
       response = await apiService.askQuestion(retryPrompt, 5)
