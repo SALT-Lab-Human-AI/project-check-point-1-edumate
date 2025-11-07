@@ -1,14 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NavBar } from "@/components/nav-bar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Slider } from "@/components/ui/slider"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, XCircle, Download, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
-import { submitS2 } from "@/lib/hybrid-service"
+import { submitS2, getTopics, generateQuestion } from "@/lib/hybrid-service"
 import { MathRenderer } from "@/components/math-renderer"
 import { FeedbackDisplay } from "@/components/feedback-display"
 import { useTimeTracking } from "@/lib/use-time-tracking"
@@ -31,14 +33,59 @@ interface FeedbackData {
 export default function S2Page() {
   const [showFeedback, setShowFeedback] = useState(false)
   const [mode, setMode] = useState<"hints" | "direct">("hints")
+  const [grade, setGrade] = useState(8)
+  const [topic, setTopic] = useState("")
+  const [availableTopics, setAvailableTopics] = useState<string[]>([])
   const [question, setQuestion] = useState("Solve for x: 3x + 7 = 22")
   const [solution, setSolution] = useState("Step 1: 3x + 7 = 22\nStep 2: 3x = 22 - 7\nStep 3: 3x = 16\nStep 4: x = 16/3")
   const [feedbackData, setFeedbackData] = useState<FeedbackData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Track time spent on this page
   useTimeTracking('s2')
+
+  // Load topics based on grade level
+  useEffect(() => {
+    const loadTopics = async () => {
+      try {
+        const topics = await getTopics(grade)
+        setAvailableTopics(topics)
+        if (topics.length > 0 && (!topic || !topics.includes(topic))) {
+          setTopic(topics[0])
+        }
+      } catch (err) {
+        console.error("Failed to load topics:", err)
+      }
+    }
+    
+    loadTopics()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grade])
+
+  const handleGenerateQuestion = async () => {
+    if (!topic) {
+      setError("Please select a topic")
+      return
+    }
+
+    setIsGeneratingQuestion(true)
+    setError(null)
+    
+    try {
+      const generatedQuestion = await generateQuestion(grade, topic)
+      setQuestion(generatedQuestion)
+      setSolution("") // Clear solution when generating new question
+      setFeedbackData(null)
+      setShowFeedback(false)
+    } catch (err) {
+      console.error("Failed to generate question:", err)
+      setError("Failed to generate question. Please try again.")
+    } finally {
+      setIsGeneratingQuestion(false)
+    }
+  }
 
   const handleSubmitSolution = async () => {
     if (!question.trim() || !solution.trim()) {
@@ -90,6 +137,54 @@ export default function S2Page() {
                 {error}
               </div>
             )}
+
+            {/* Grade and Topic Selection */}
+            <Card className="p-6 mb-6">
+              <h2 className="text-lg font-bold text-navy mb-4">Generate Question</h2>
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <Label>Grade Level: {grade}</Label>
+                  <Slider
+                    value={[grade]}
+                    onValueChange={([v]) => setGrade(v)}
+                    min={1}
+                    max={12}
+                    step={1}
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="topic">Topic</Label>
+                  <Select value={topic} onValueChange={setTopic}>
+                    <SelectTrigger id="topic" className="mt-2">
+                      <SelectValue placeholder="Select a topic" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTopics.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleGenerateQuestion}
+                disabled={isGeneratingQuestion || !topic}
+              >
+                {isGeneratingQuestion ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating Question...
+                  </>
+                ) : (
+                  "Generate Question"
+                )}
+              </Button>
+            </Card>
 
             {/* Input Section */}
             <div className="grid lg:grid-cols-2 gap-6 mb-6">

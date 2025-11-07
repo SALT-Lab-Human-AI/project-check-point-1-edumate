@@ -142,6 +142,118 @@ IMPORTANT:
   }
 }
 
+// Helper function to count steps in student's solution
+function countStepsInSolution(solution: string): number {
+  // Normalize the solution: replace tabs with spaces, handle various whitespace
+  const normalized = solution.replace(/\t/g, ' ').replace(/\s+/g, ' ')
+  
+  // Count steps by looking for numbered steps at the start of lines (1., 2., 3., etc.)
+  // This pattern matches: number followed by period or parenthesis, then space or tab
+  // Handle both "1. " and "1.\t" patterns
+  const numberedListAtStart = normalized.match(/^\s*\d+[\.\)][\s\t]/gm) || []
+  
+  // Also look for numbered steps anywhere (1., 2., 3., etc.)
+  // Match number followed by period/parenthesis and whitespace
+  const numberedSteps = normalized.match(/\b\d+[\.\)][\s\t]/g) || []
+  
+  // Look for patterns like "Step 1:", "Step 2:", etc.
+  const stepKeywords = normalized.match(/Step\s+\d+/gi) || []
+  
+  // More aggressive: look for any line starting with a number followed by period/parenthesis
+  const strictNumbered = normalized.split('\n').filter(line => {
+    const trimmed = line.trim()
+    return /^\d+[\.\)][\s\t]/.test(trimmed)
+  })
+  
+  // Get the maximum count from different patterns
+  const counts = [
+    numberedListAtStart.length,
+    strictNumbered.length,
+    numberedSteps.length,
+    stepKeywords.length
+  ]
+  
+  // If we found numbered steps, use the maximum
+  const maxCount = Math.max(...counts)
+  if (maxCount > 0) {
+    return maxCount
+  }
+  
+  // If no clear step markers, try to count by line breaks and content
+  // Split by common separators and count meaningful sections
+  const lines = solution.split(/\n+/).filter(line => {
+    const trimmed = line.trim()
+    return trimmed.length > 10 && !trimmed.match(/^(###|##|#|\*|-)/) // Exclude markdown headers
+  })
+  
+  return Math.max(1, lines.length)
+}
+
+// Helper function to count steps in AI feedback
+function countStepsInFeedback(feedback: string): number {
+  // Look for table rows in the Problem Analysis section
+  const problemAnalysisMatch = feedback.match(/###\s*Problem\s*Analysis\s*([\s\S]*?)(?=###|$)/i)
+  if (problemAnalysisMatch) {
+    const analysisSection = problemAnalysisMatch[1]
+    
+    // Count table rows that start with | and have a number in the first column
+    // Match pattern: | number | (with optional whitespace)
+    // Exclude header rows (which contain "Step" or "------")
+    const tableRows = analysisSection.split('\n').filter(line => {
+      const trimmed = line.trim()
+      // Match lines that start with | followed by a number
+      const match = trimmed.match(/^\|\s*(\d+)\s*\|/)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        // Valid step number (1-99)
+        return num > 0 && num < 100
+      }
+      return false
+    })
+    
+    if (tableRows.length > 0) {
+      // Get all step numbers and return the maximum (to handle any gaps)
+      const stepNumbers = tableRows.map(line => {
+        const match = line.trim().match(/^\|\s*(\d+)\s*\|/)
+        return match ? parseInt(match[1], 10) : 0
+      }).filter(n => n > 0)
+      
+      if (stepNumbers.length > 0) {
+        return Math.max(...stepNumbers)
+      }
+      return tableRows.length
+    }
+  }
+  
+  // Fallback: look for any table rows with step numbers in the entire feedback
+  const allTableRows = feedback.split('\n').filter(line => {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('|')) return false
+    const match = trimmed.match(/^\|\s*(\d+)\s*\|/)
+    if (match) {
+      const num = parseInt(match[1], 10)
+      return num > 0 && num < 100
+    }
+    return false
+  })
+  
+  if (allTableRows.length > 0) {
+    const stepNumbers = allTableRows.map(line => {
+      const match = line.trim().match(/^\|\s*(\d+)\s*\|/)
+      return match ? parseInt(match[1], 10) : 0
+    }).filter(n => n > 0)
+    
+    if (stepNumbers.length > 0) {
+      return Math.max(...stepNumbers)
+    }
+    return allTableRows.length
+  }
+  
+  // Last fallback: count numbered steps in the feedback text
+  const numberedSteps = feedback.match(/\b\d+[\.\)]\s/g) || []
+  return Math.max(1, numberedSteps.length)
+}
+
 export async function submitS2(payload: {
   question: string
   solution: string
@@ -152,22 +264,61 @@ export async function submitS2(payload: {
     throw new Error("Direct answer mode is disabled by parent controls")
   }
 
+  // Count steps in student's solution
+  const studentStepCount = countStepsInSolution(payload.solution)
+  
+  // Parse the solution to extract individual steps for better prompting
+  const solutionLines = payload.solution.split('\n').filter(line => line.trim().length > 0)
+  const extractedSteps: string[] = []
+  
+  solutionLines.forEach(line => {
+    const trimmed = line.trim()
+    // Check if line starts with a number followed by period/parenthesis
+    const stepMatch = trimmed.match(/^(\d+)[\.\)][\s\t]*(.+)$/)
+    if (stepMatch) {
+      extractedSteps.push(stepMatch[2].trim())
+    }
+  })
+  
+  // If we extracted steps, use them; otherwise use the full solution
+  const hasExtractedSteps = extractedSteps.length > 0
+  const actualStepCount = hasExtractedSteps ? extractedSteps.length : studentStepCount
+  
   // Create a structured prompt for better feedback
-  const prompt = `You are a math tutor providing feedback on a student's solution. 
+  const modeInstruction = payload.mode === "direct" 
+    ? "MODE: DIRECT - You MUST provide the correct final answer in the Final Answer section."
+    : "MODE: HINTS - Do NOT reveal the final answer. Only provide hints."
+  
+  // Build the table rows explicitly for all steps
+  const tableRows = Array.from({ length: actualStepCount }, (_, i) => {
+    const stepNum = i + 1
+    const stepContent = hasExtractedSteps && extractedSteps[i] 
+      ? extractedSteps[i].substring(0, 100) // Limit length for prompt
+      : `[student's step ${stepNum}]`
+    return `| ${stepNum} | ${stepContent} | [what it should be] | Correct/Incorrect | [brief explanation] |`
+  }).join('\n')
+  
+  let prompt = `You are a math tutor providing feedback on a student's solution. 
 
 QUESTION: ${payload.question}
 
-STUDENT'S SOLUTION: ${payload.solution}
+STUDENT'S SOLUTION:
+${payload.solution}
 
-Please provide feedback in this EXACT format (no emojis, no answers revealed):
+${modeInstruction}
+
+CRITICAL REQUIREMENT: The student's solution has EXACTLY ${actualStepCount} step(s). 
+You MUST provide feedback for ALL ${actualStepCount} step(s). 
+DO NOT skip any steps. DO NOT combine steps. 
+Each step must have its own row in the Problem Analysis table.
+
+Please provide feedback in this EXACT format (no emojis):
 
 ### Problem Analysis
 
 | Step | Student Work | Correct Work | Status | Explanation |
 |------|--------------|--------------|--------|-------------|
-| 1 | [student's step 1] | [what it should be] | Correct/Incorrect | [brief explanation] |
-| 2 | [student's step 2] | [what it should be] | Correct/Incorrect | [brief explanation] |
-| 3 | [student's step 3] | [what it should be] | Correct/Incorrect | [brief explanation] |
+${tableRows}
 
 ### Hints for Improvement
 1. [Specific hint without revealing answer]
@@ -175,16 +326,123 @@ Please provide feedback in this EXACT format (no emojis, no answers revealed):
 3. [General improvement tip]
 
 ### Final Answer
-[Only show if mode is "direct", otherwise show "Answer will be provided after you try again"]
+${payload.mode === "direct" 
+  ? "[Provide the correct final answer here. Be clear and specific.]" 
+  : "Answer will be provided after you try again"}
 
 IMPORTANT: 
 - Do NOT include emojis or special characters
-- Do NOT reveal the final answer in hints mode
+${payload.mode === "hints" ? "- Do NOT reveal the final answer in hints mode" : "- You MUST provide the correct final answer in direct mode"}
+- You MUST analyze ALL ${actualStepCount} step(s) - this is REQUIRED, not optional
+- The Problem Analysis table MUST have exactly ${actualStepCount} rows (one for each step)
+- DO NOT combine multiple steps into one row
+- DO NOT skip any steps
 - Focus on which specific steps are wrong
 - Provide actionable hints, not solutions
 - Use clear, simple language`
 
-  const response = await apiService.askQuestion(prompt, 5)
+  let response = await apiService.askQuestion(prompt, 5)
+  
+  // Feedback loop for hint mode: ensure AI analyzes all steps
+  if (payload.mode === "hints") {
+    let feedbackStepCount = countStepsInFeedback(response.answer)
+    let retryCount = 0
+    const maxRetries = 5 // Increased retries
+    
+    while (feedbackStepCount < actualStepCount && retryCount < maxRetries) {
+      retryCount++
+      
+      // Build explicit table with all steps
+      const retryTableRows = Array.from({ length: actualStepCount }, (_, i) => {
+        const stepNum = i + 1
+        const stepContent = hasExtractedSteps && extractedSteps[i] 
+          ? extractedSteps[i].substring(0, 100)
+          : `[student's step ${stepNum}]`
+        return `| ${stepNum} | ${stepContent} | [what it should be] | Correct/Incorrect | [brief explanation] |`
+      }).join('\n')
+      
+      // Create a more explicit prompt asking for all steps
+      const retryPrompt = `You are a math tutor providing feedback on a student's solution. 
+
+QUESTION: ${payload.question}
+
+STUDENT'S SOLUTION:
+${payload.solution}
+
+MODE: HINTS - Do NOT reveal the final answer. Only provide hints.
+
+CRITICAL ERROR: The student's solution has EXACTLY ${actualStepCount} step(s), but your previous feedback only analyzed ${feedbackStepCount} step(s). 
+This is INCORRECT. You MUST analyze ALL ${actualStepCount} step(s). Missing steps is NOT acceptable.
+
+The student's solution has these ${actualStepCount} steps:
+${hasExtractedSteps ? extractedSteps.map((step, idx) => `${idx + 1}. ${step.substring(0, 150)}`).join('\n') : 'See the full solution above.'}
+
+You MUST provide feedback for EACH of these ${actualStepCount} steps in the Problem Analysis table.
+
+Please provide feedback in this EXACT format (no emojis):
+
+### Problem Analysis
+
+| Step | Student Work | Correct Work | Status | Explanation |
+|------|--------------|--------------|--------|-------------|
+${retryTableRows}
+
+### Hints for Improvement
+1. [Specific hint without revealing answer]
+2. [Another specific hint]
+3. [General improvement tip]
+
+### Final Answer
+Answer will be provided after you try again
+
+CRITICAL REQUIREMENTS: 
+- Do NOT include emojis or special characters
+- Do NOT reveal the final answer in hints mode
+- The Problem Analysis table MUST have exactly ${actualStepCount} rows
+- You analyzed ${feedbackStepCount} steps before - this was WRONG
+- You MUST analyze ALL ${actualStepCount} steps now - no exceptions
+- DO NOT combine steps
+- DO NOT skip steps
+- Each numbered step from the student's solution MUST have its own row
+- Focus on which specific steps are wrong
+- Provide actionable hints, not solutions
+- Use clear, simple language`
+
+      response = await apiService.askQuestion(retryPrompt, 5)
+      feedbackStepCount = countStepsInFeedback(response.answer)
+      
+      // Log for debugging (can be removed in production)
+      console.log(`[S2 Feedback Loop] Attempt ${retryCount}: Expected ${actualStepCount} steps, got ${feedbackStepCount} steps`)
+    }
+    
+    // Final check: if still not matching, log a warning
+    if (feedbackStepCount < actualStepCount) {
+      console.warn(`[S2 Feedback Loop] WARNING: After ${retryCount} retries, still only got ${feedbackStepCount} steps instead of ${actualStepCount}`)
+    }
+  }
+  
+  // Extract final answer from response if in direct mode
+  let finalAnswer: string | undefined = undefined
+  if (payload.mode === "direct") {
+    // Look for "### Final Answer" section in the response
+    const finalAnswerMatch = response.answer.match(/###\s*Final\s*Answer\s*\n([\s\S]*?)(?=\n###|$)/i)
+    if (finalAnswerMatch && finalAnswerMatch[1]) {
+      finalAnswer = finalAnswerMatch[1].trim()
+      // If the answer contains placeholder text, ask AI specifically for the answer
+      if (finalAnswer.includes("Answer will be provided after you try again") || 
+          finalAnswer.includes("[Provide the correct final answer") ||
+          finalAnswer.length < 3) {
+        const answerPrompt = `Given this math problem: ${payload.question}\n\nWhat is the correct final answer? Provide ONLY the answer, no explanation, no additional text.`
+        const answerResponse = await apiService.askQuestion(answerPrompt, 5)
+        finalAnswer = answerResponse.answer.trim()
+      }
+    } else {
+      // If Final Answer section not found, ask AI specifically for the answer
+      const answerPrompt = `Given this math problem: ${payload.question}\n\nWhat is the correct final answer? Provide ONLY the answer, no explanation, no additional text.`
+      const answerResponse = await apiService.askQuestion(answerPrompt, 5)
+      finalAnswer = answerResponse.answer.trim()
+    }
+  }
   
   return {
     feedback: response.answer,
@@ -192,7 +450,7 @@ IMPORTANT:
     suggestions: [],
     isCorrect: false, // This could be determined by the AI
     encouragement: "Keep practicing!",
-    finalAnswer: payload.mode === "direct" ? "Answer will be provided by AI" : undefined,
+    finalAnswer: finalAnswer,
     errors: []
   }
 }
