@@ -14,6 +14,7 @@ import { submitS2, getTopics, generateQuestion } from "@/lib/hybrid-service"
 import { MathRenderer } from "@/components/math-renderer"
 import { FeedbackDisplay } from "@/components/feedback-display"
 import { useTimeTracking } from "@/lib/use-time-tracking"
+import { useApp } from "@/store/app-context"
 
 interface FeedbackData {
   feedback: string
@@ -31,6 +32,7 @@ interface FeedbackData {
 }
 
 export default function S2Page() {
+  const { parentControls } = useApp()
   const [showFeedback, setShowFeedback] = useState(false)
   const [mode, setMode] = useState<"hints" | "direct">("hints")
   const [grade, setGrade] = useState(8)
@@ -45,6 +47,13 @@ export default function S2Page() {
 
   // Track time spent on this page
   useTimeTracking('s2')
+
+  // Ensure mode is set to hints if direct mode is disabled
+  useEffect(() => {
+    if (!parentControls.allowDirectAnswer && mode === "direct") {
+      setMode("hints")
+    }
+  }, [parentControls.allowDirectAnswer, mode])
 
   // Load topics based on grade level
   useEffect(() => {
@@ -101,7 +110,7 @@ export default function S2Page() {
         question: question.trim(),
         solution: solution.trim(),
         mode,
-        allowDirect: true // You can make this configurable
+        allowDirect: parentControls.allowDirectAnswer
       })
       
       setFeedbackData(feedback)
@@ -224,7 +233,16 @@ export default function S2Page() {
             {/* Mode Selection */}
             <Card className="p-6 mb-6">
               <h2 className="text-lg font-bold text-navy mb-4">Feedback Mode</h2>
-              <RadioGroup value={mode} onValueChange={(value: "hints" | "direct") => setMode(value)}>
+              <RadioGroup 
+                value={mode} 
+                onValueChange={(value: "hints" | "direct") => {
+                  // Only allow direct mode if parent controls allow it
+                  if (value === "direct" && !parentControls.allowDirectAnswer) {
+                    return
+                  }
+                  setMode(value)
+                }}
+              >
                 <div className="flex gap-6">
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="hints" id="hints" />
@@ -236,10 +254,22 @@ export default function S2Page() {
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="direct" id="direct" />
-                    <Label htmlFor="direct" className="cursor-pointer">
+                    <RadioGroupItem 
+                      value="direct" 
+                      id="direct" 
+                      disabled={!parentControls.allowDirectAnswer}
+                    />
+                    <Label 
+                      htmlFor="direct" 
+                      className={`cursor-pointer ${!parentControls.allowDirectAnswer ? 'opacity-50' : ''}`}
+                    >
                       <div>
-                        <div className="font-medium">Direct Mode</div>
+                        <div className="font-medium">
+                          Direct Mode
+                          {!parentControls.allowDirectAnswer && (
+                            <span className="text-xs text-text/60 ml-2">(Disabled by parent)</span>
+                          )}
+                        </div>
                         <div className="text-sm text-text/60">Get complete feedback with correct answers</div>
                       </div>
                     </Label>
