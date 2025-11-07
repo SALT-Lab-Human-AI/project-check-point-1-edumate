@@ -9,8 +9,8 @@ import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { Lock, TrendingUp, Clock, Target, Calendar, Loader2, UserPlus } from "lucide-react"
-import { getLinkedStudents, getStudentStats, linkAccount } from "@/lib/api-service"
+import { Lock, TrendingUp, Clock, Target, Calendar, Loader2, UserPlus, Save } from "lucide-react"
+import { getLinkedStudents, getStudentStats, linkAccount, getDailyGoals, setStudentGoalsByParent } from "@/lib/api-service"
 
 interface Student {
   id: string
@@ -37,6 +37,9 @@ export default function ParentDashboard() {
   const [localControls, setLocalControls] = useState(parentControls)
   const [students, setStudents] = useState<Student[]>([])
   const [studentStats, setStudentStats] = useState<Record<string, StudentStats>>({})
+  const [studentGoals, setStudentGoals] = useState<Record<string, { target_time_seconds: number; target_quizzes: number }>>({})
+  const [editingGoals, setEditingGoals] = useState<Record<string, { target_time_seconds: number; target_quizzes: number }>>({})
+  const [savingGoals, setSavingGoals] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [linking, setLinking] = useState(false)
   const [studentEmail, setStudentEmail] = useState("")
@@ -61,23 +64,50 @@ export default function ParentDashboard() {
       if (response.success && response.students) {
         setStudents(response.students)
         
-        // Load stats for each student
-        const statsPromises = response.students.map(async (student) => {
-          const statsResponse = await getStudentStats(student.id)
-          if (statsResponse.success && statsResponse.stats) {
-            return { studentId: student.id, stats: statsResponse.stats }
+        // Load stats and goals for each student
+        const dataPromises = response.students.map(async (student) => {
+          const [statsResponse, goalsResponse] = await Promise.all([
+            getStudentStats(student.id),
+            getDailyGoals(student.id)
+          ])
+          
+          const result: { studentId: string; stats?: StudentStats; goals?: { target_time_seconds: number; target_quizzes: number } } = {
+            studentId: student.id
           }
-          return null
+          
+          if (statsResponse.success && statsResponse.stats) {
+            result.stats = statsResponse.stats
+          }
+          
+          if (goalsResponse.success && goalsResponse.goals) {
+            result.goals = goalsResponse.goals
+          }
+          
+          return result
         })
         
-        const statsResults = await Promise.all(statsPromises)
+        const dataResults = await Promise.all(dataPromises)
         const statsMap: Record<string, StudentStats> = {}
-        statsResults.forEach((result) => {
-          if (result) {
+        const goalsMap: Record<string, { target_time_seconds: number; target_quizzes: number }> = {}
+        const editingMap: Record<string, { target_time_seconds: number; target_quizzes: number }> = {}
+        
+        dataResults.forEach((result) => {
+          if (result.stats) {
             statsMap[result.studentId] = result.stats
           }
+          if (result.goals) {
+            goalsMap[result.studentId] = result.goals
+            editingMap[result.studentId] = { ...result.goals }
+          } else {
+            // Set defaults if no goals exist
+            goalsMap[result.studentId] = { target_time_seconds: 1800, target_quizzes: 2 }
+            editingMap[result.studentId] = { target_time_seconds: 1800, target_quizzes: 2 }
+          }
         })
+        
         setStudentStats(statsMap)
+        setStudentGoals(goalsMap)
+        setEditingGoals(editingMap)
       }
     } catch (err) {
       console.error("Failed to load students:", err)
@@ -108,6 +138,45 @@ export default function ParentDashboard() {
       alert("Failed to link account. Please try again.")
     } finally {
       setLinking(false)
+    }
+  }
+
+  const handleSaveGoals = async (studentId: string) => {
+    if (!user || user.role !== "parent") return
+    
+    const goals = editingGoals[studentId]
+    if (!goals) return
+    
+    setSavingGoals(prev => ({ ...prev, [studentId]: true }))
+    
+    try {
+      const response = await setStudentGoalsByParent(user.id, studentId, {
+        target_time_seconds: goals.target_time_seconds,
+        target_quizzes: goals.target_quizzes
+      })
+      
+      if (response.success && response.goals) {
+        setStudentGoals(prev => ({ ...prev, [studentId]: response.goals! }))
+        alert("Daily goals updated successfully!")
+      } else {
+        alert(response.error || "Failed to update goals")
+      }
+    } catch (err) {
+      console.error("Failed to save goals:", err)
+      alert("Failed to save goals. Please try again.")
+    } finally {
+      setSavingGoals(prev => ({ ...prev, [studentId]: false }))
+    }
+  }
+
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    } else {
+      return `${minutes}m`
     }
   }
 
@@ -250,12 +319,17 @@ export default function ParentDashboard() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {students.map(student => {
                 const stats = studentStats[student.id]
+                const goals = studentGoals[student.id]
+                const editing = editingGoals[student.id]
+                const saving = savingGoals[student.id] || false
+                
                 return (
                   <Card key={student.id} className="p-4">
                     <h3 className="font-bold text-navy mb-2">{student.name}</h3>
                     <p className="text-sm text-text/60 mb-3">Grade {student.grade}</p>
+                    
                     {stats ? (
-                      <div className="space-y-1 text-sm">
+                      <div className="space-y-1 text-sm mb-4">
                         <div className="flex justify-between">
                           <span className="text-text/60">Quizzes:</span>
                           <span className="font-semibold">{stats.total_quizzes}</span>
@@ -270,8 +344,98 @@ export default function ParentDashboard() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-text/60">No activity yet</p>
+                      <p className="text-sm text-text/60 mb-4">No activity yet</p>
                     )}
+                    
+                    {/* Daily Goals Section */}
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Target className="w-4 h-4 text-primary" />
+                        <h4 className="text-sm font-semibold text-navy">Daily Goals</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {/* Target Time */}
+                        <div>
+                          <Label htmlFor={`time-${student.id}`} className="text-xs text-text/60">
+                            Target Time (minutes)
+                          </Label>
+                          <Input
+                            id={`time-${student.id}`}
+                            type="number"
+                            min={10}
+                            max={180}
+                            value={editing ? Math.floor(editing.target_time_seconds / 60) : 30}
+                            onChange={(e) => {
+                              const minutes = parseInt(e.target.value) || 30
+                              setEditingGoals(prev => ({
+                                ...prev,
+                                [student.id]: {
+                                  ...(prev[student.id] || { target_time_seconds: 1800, target_quizzes: 2 }),
+                                  target_time_seconds: minutes * 60
+                                }
+                              }))
+                            }}
+                            className="mt-1 text-sm"
+                          />
+                        </div>
+                        
+                        {/* Target Quizzes */}
+                        <div>
+                          <Label htmlFor={`quizzes-${student.id}`} className="text-xs text-text/60">
+                            Target Quizzes
+                          </Label>
+                          <Input
+                            id={`quizzes-${student.id}`}
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={editing?.target_quizzes || 2}
+                            onChange={(e) => {
+                              const quizzes = parseInt(e.target.value) || 2
+                              setEditingGoals(prev => ({
+                                ...prev,
+                                [student.id]: {
+                                  ...(prev[student.id] || { target_time_seconds: 1800, target_quizzes: 2 }),
+                                  target_quizzes: quizzes
+                                }
+                              }))
+                            }}
+                            className="mt-1 text-sm"
+                          />
+                        </div>
+                        
+                        {/* Save Button */}
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveGoals(student.id)}
+                          disabled={saving}
+                          className="w-full"
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-3 h-3 mr-2" />
+                              Save Goals
+                            </>
+                          )}
+                        </Button>
+                        
+                        {/* Current Goals Display */}
+                        {goals && (
+                          <div className="text-xs text-text/60 pt-2 border-t border-gray-100">
+                            <div className="flex justify-between mb-1">
+                              <span>Current:</span>
+                              <span>{formatTime(goals.target_time_seconds)} / {goals.target_quizzes} quizzes</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </Card>
                 )
               })}
@@ -368,26 +532,6 @@ export default function ParentDashboard() {
                     </Button>
                   ))}
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="daily-goal" className="font-medium">
-                  Daily Goal (minutes)
-                </Label>
-                <Input
-                  id="daily-goal"
-                  type="number"
-                  min={10}
-                  max={120}
-                  value={localControls.dailyGoalMinutes}
-                  onChange={(e) =>
-                    setLocalControls({
-                      ...localControls,
-                      dailyGoalMinutes: Number.parseInt(e.target.value),
-                    })
-                  }
-                  className="mt-2"
-                />
               </div>
 
               <Button onClick={handleSave} className="w-full">

@@ -885,7 +885,7 @@ async def get_daily_goals(student_id: str):
 
 @app.post("/goals/student/{student_id}")
 async def set_daily_goals(student_id: str, payload: dict):
-    """Set or update daily goals for a student"""
+    """Set or update daily goals for a student (deprecated - use parent endpoint)"""
     conn = get_db()
     cursor = conn.cursor()
     
@@ -895,6 +895,74 @@ async def set_daily_goals(student_id: str, payload: dict):
         
         target_time_seconds = payload.get("target_time_seconds", 1800)
         target_quizzes = payload.get("target_quizzes", 2)
+        
+        # Check if goal already exists for today
+        cursor.execute("""
+            SELECT id FROM daily_goals
+            WHERE student_id = ? AND goal_date = ?
+        """, (student_id, today))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing goal
+            cursor.execute("""
+                UPDATE daily_goals
+                SET target_time_seconds = ?,
+                    target_quizzes = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+            """, (target_time_seconds, target_quizzes, existing["id"]))
+        else:
+            # Create new goal
+            goal_id = generate_id()
+            cursor.execute("""
+                INSERT INTO daily_goals
+                (id, student_id, target_time_seconds, target_quizzes, goal_date)
+                VALUES (?, ?, ?, ?, ?)
+            """, (goal_id, student_id, target_time_seconds, target_quizzes, today))
+        
+        conn.commit()
+        return {
+            "success": True,
+            "goals": {
+                "target_time_seconds": target_time_seconds,
+                "target_quizzes": target_quizzes
+            }
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.post("/goals/parent/{parent_id}/student/{student_id}")
+async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: dict):
+    """Set or update daily goals for a student by their parent (with verification)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verify parent-student relationship
+        cursor.execute("""
+            SELECT id FROM parent_student_links
+            WHERE parent_id = ? AND student_id = ?
+        """, (parent_id, student_id))
+        
+        link = cursor.fetchone()
+        if not link:
+            return {"error": "Student not linked to this parent", "success": False}
+        
+        from datetime import date
+        today = date.today().isoformat()
+        
+        target_time_seconds = payload.get("target_time_seconds", 1800)
+        target_quizzes = payload.get("target_quizzes", 2)
+        
+        # Validate inputs
+        if target_time_seconds < 0 or target_quizzes < 0:
+            return {"error": "Goals must be non-negative", "success": False}
         
         # Check if goal already exists for today
         cursor.execute("""

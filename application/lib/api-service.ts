@@ -236,3 +236,21 @@ export async function setDailyGoals(studentId: string, payload: {
     body: JSON.stringify(payload),
   })
 }
+
+// Parent setting goals for linked student
+export async function setStudentGoalsByParent(parentId: string, studentId: string, payload: {
+  target_time_seconds: number
+  target_quizzes: number
+}): Promise<{
+  success: boolean
+  goals?: {
+    target_time_seconds: number
+    target_quizzes: number
+  }
+  error?: string
+}> {
+  return apiCall(`/goals/parent/${parentId}/student/${studentId}`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
