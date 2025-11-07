@@ -21,6 +21,7 @@ export function NavBar() {
   const router = useRouter()
   const [todayTotalTime, setTodayTotalTime] = useState<number>(0)
   const [todayQuizCount, setTodayQuizCount] = useState<number>(0)
+  const [totalQuizzes, setTotalQuizzes] = useState<number>(0)
   const [targetTime, setTargetTime] = useState<number>(1800) // 30 minutes default
   const [targetQuizzes, setTargetQuizzes] = useState<number>(2) // 2 quizzes default
 
@@ -33,6 +34,7 @@ export function NavBar() {
           if (statsResponse.success && statsResponse.stats) {
             setTodayTotalTime(statsResponse.stats.today_total_time_seconds || 0)
             setTodayQuizCount(statsResponse.stats.today_quiz_count || 0)
+            setTotalQuizzes(statsResponse.stats.total_quizzes || 0)
           }
           
           // Fetch daily goals
@@ -137,13 +139,13 @@ export function NavBar() {
                   <div className="flex items-center gap-1.5">
                     <Target className="w-3.5 h-3.5 text-text/60" />
                     <span className="text-xs font-medium text-navy">
-                      {todayQuizCount} / {targetQuizzes} quizzes
+                      {totalQuizzes} / {targetQuizzes} quizzes
                     </span>
                     <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
                       <div 
                         className="h-full bg-leaf transition-all"
                         style={{ 
-                          width: `${Math.min(100, targetQuizzes > 0 ? (todayQuizCount / targetQuizzes) * 100 : 0)}%` 
+                          width: `${Math.min(100, targetQuizzes > 0 ? (totalQuizzes / targetQuizzes) * 100 : 0)}%` 
                         }}
                       />
                     </div>

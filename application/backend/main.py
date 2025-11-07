@@ -844,7 +844,7 @@ async def get_student_stats(student_id: str):
 
 @app.get("/goals/student/{student_id}")
 async def get_daily_goals(student_id: str):
-    """Get daily goals for a student (today's goals)"""
+    """Get daily goals for a student (today's goals, or most recent if today's doesn't exist)"""
     conn = get_db()
     cursor = conn.cursor()
     
@@ -852,6 +852,7 @@ async def get_daily_goals(student_id: str):
         from datetime import date
         today = date.today().isoformat()
         
+        # First, try to get today's goal
         cursor.execute("""
             SELECT target_time_seconds, target_quizzes
             FROM daily_goals
@@ -866,6 +867,26 @@ async def get_daily_goals(student_id: str):
                 "goals": {
                     "target_time_seconds": goal["target_time_seconds"],
                     "target_quizzes": goal["target_quizzes"]
+                }
+            }
+        
+        # If no goal for today, get the most recent goal (persists across days)
+        cursor.execute("""
+            SELECT target_time_seconds, target_quizzes
+            FROM daily_goals
+            WHERE student_id = ?
+            ORDER BY goal_date DESC
+            LIMIT 1
+        """, (student_id,))
+        
+        recent_goal = cursor.fetchone()
+        
+        if recent_goal:
+            return {
+                "success": True,
+                "goals": {
+                    "target_time_seconds": recent_goal["target_time_seconds"],
+                    "target_quizzes": recent_goal["target_quizzes"]
                 }
             }
         else:
@@ -939,7 +960,8 @@ async def set_daily_goals(student_id: str, payload: dict):
 
 @app.post("/goals/parent/{parent_id}/student/{student_id}")
 async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: dict):
-    """Set or update daily goals for a student by their parent (with verification)"""
+    """Set or update daily goals for a student by their parent (with verification).
+    Goals persist across days until changed."""
     conn = get_db()
     cursor = conn.cursor()
     
@@ -973,7 +995,7 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
         existing = cursor.fetchone()
         
         if existing:
-            # Update existing goal
+            # Update existing goal for today
             cursor.execute("""
                 UPDATE daily_goals
                 SET target_time_seconds = ?,
@@ -982,7 +1004,7 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
                 WHERE id = ?
             """, (target_time_seconds, target_quizzes, existing["id"]))
         else:
-            # Create new goal
+            # Create new goal for today (will persist as most recent goal)
             goal_id = generate_id()
             cursor.execute("""
                 INSERT INTO daily_goals
@@ -1029,6 +1051,19 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         
         goals = {row["goal_date"]: row for row in cursor.fetchall()}
         
+        # Get the most recent goal (to use as default for days without specific goals)
+        cursor.execute("""
+            SELECT target_time_seconds, target_quizzes
+            FROM daily_goals
+            WHERE student_id = ?
+            ORDER BY goal_date DESC
+            LIMIT 1
+        """, (student_id,))
+        
+        most_recent_goal = cursor.fetchone()
+        default_time = most_recent_goal["target_time_seconds"] if most_recent_goal else 1800
+        default_quizzes = most_recent_goal["target_quizzes"] if most_recent_goal else 2
+        
         # Get total time spent per day for this month
         cursor.execute("""
             SELECT session_date, SUM(total_time_seconds) as total_time
@@ -1055,15 +1090,15 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
             current_date = date(year, month, day)
             date_str = current_date.isoformat()
             
-            # Get goal for this date (or use default)
+            # Get goal for this date (or use most recent goal as default)
             goal = goals.get(date_str)
             if goal:
                 target_time = goal["target_time_seconds"]
                 target_quizzes = goal["target_quizzes"]
             else:
-                # Use default goals if not set
-                target_time = 1800  # 30 minutes
-                target_quizzes = 2
+                # Use most recent goal if not set for this date (persists across days)
+                target_time = default_time
+                target_quizzes = default_quizzes
             
             # Get actual time and quizzes for this date
             actual_time = time_tracking.get(date_str, 0) or 0
