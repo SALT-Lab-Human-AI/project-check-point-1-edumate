@@ -2,14 +2,14 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useApp } from "@/store/app-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export default function LoginPage() {
+function LoginForm() {
   const [role, setRole] = useState<"student" | "parent">("student")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -120,5 +120,23 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-sky/20 via-white to-primary/10 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center mb-4">
+            <img src="/logo.png" alt="EduMate Logo" className="w-32 h-32" />
+          </div>
+          <h1 className="text-4xl font-bold text-navy mb-2">Welcome to EduMate</h1>
+          <p className="text-text/60">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
