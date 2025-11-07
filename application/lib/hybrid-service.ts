@@ -267,6 +267,10 @@ IMPORTANT:
 - Ensure mathematical expressions are properly formatted with spaces
 - Use "Simplifying each side gives" not "Simplifyingeachsidegives"
 - For sequences like 7→10→13→16→19→22, write them as "7 → 10 → 13 → 16 → 19 → 22" with proper spacing
+- ALWAYS wrap LaTeX expressions in $...$ delimiters (e.g., $a_{\text{new}}$, not a_{\text{new}})
+- For subscripts, use $a_{text}$ format, not a_{text} without delimiters
+- Do NOT break equations across multiple lines (e.g., write "Plug in s = 13" not "Plug in\ns\n=\n13")
+- Keep mathematical expressions on single lines when possible
 - Only use LaTeX ($...$) for actual mathematical expressions, not for regular text
 - Do NOT use markdown formatting like **bold** or *italic* - use plain text only
 - Write titles and headings as plain text without any special formatting
@@ -279,6 +283,10 @@ IMPORTANT:
 - Write all text as normal words with proper spacing
 - Do NOT break up words character by character
 - Ensure all text flows naturally and is readable
+- For code blocks: Use plain text format, NOT markdown code blocks and NOT LaTeX ($...$). Write code as plain text with proper indentation
+- For complexity notation (like O(n log n), O(n^2), etc.): Write as plain text, NOT in LaTeX format. Use "O(n log n)" not "$O(n \\log n)$"
+- For code examples: Write them as plain text with clear line breaks, NOT wrapped in LaTeX delimiters
+- NEVER use LaTeX ($...$) for code, complexity notation, or algorithm descriptions - only for mathematical equations and formulas
 - For Alternate Methods: If there are no alternative methods, write exactly "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."`
 
   let response = await apiService.askQuestion(basePrompt, payload.grade)
@@ -365,6 +373,9 @@ CRITICAL REQUIREMENTS:
 - Use clear, educational language appropriate for grade ${payload.grade}
 - Do NOT use emojis or special characters
 - Use clean, professional formatting
+- For code blocks: Write as plain text with proper indentation, NOT markdown code blocks and NOT LaTeX ($...$)
+- For complexity notation (O(n log n), O(n^2), etc.): Write as plain text, NOT in LaTeX format
+- NEVER use LaTeX ($...$) for code, complexity notation, or algorithm descriptions - only for mathematical equations
 - For Alternate Methods: If there are no alternative methods, write exactly "No other alternative methods available." If there ARE alternative methods, provide them and do NOT include "No other alternative methods available."`
 
     response = await apiService.askQuestion(retryPrompt, payload.grade)

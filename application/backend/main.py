@@ -180,6 +180,25 @@ def format_latex(answer: str) -> str:
     # Clean up triple newlines
     answer = re.sub(r'\n{3,}', '\n\n', answer)
     
+    # After line 161, add detection for subscript/superscript patterns:
+    # Handle subscript/superscript patterns like a_{text}, x^{2}, etc.
+    answer = re.sub(
+        r'(?<!\$)(?<!\$\$)([a-zA-Z])_\{([^}]+)\}(?!\$)',
+        r'$\1_{\2}$',
+        answer
+    )
+    answer = re.sub(
+        r'(?<!\$)(?<!\$\$)([a-zA-Z])\^\{([^}]+)\}(?!\$)',
+        r'$\1^{\2}$',
+        answer
+    )
+    # Handle nested subscripts like a_{\text{new}}
+    answer = re.sub(
+        r'(?<!\$)(?<!\$\$)([a-zA-Z])_\{([^}]*\\[a-zA-Z]+\{[^}]+\}[^}]*)\}(?!\$)',
+        r'$\1_{\2}$',
+        answer
+    )
+    
     return answer
 
 

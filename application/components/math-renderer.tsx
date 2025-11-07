@@ -50,6 +50,11 @@ export function MathRenderer({ children, className = "" }: { children: string; c
 
   // First, let's clean up common text issues that shouldn't be LaTeX
   let cleanedText = children
+    // Fix simple variable names in text - strip $x$, $y$, $s$, $a$, $g$, etc. for all single letters
+    // Note: This only matches single letters, so LaTeX commands like $\overline{6}$ are preserved
+    .replace(/\$([a-zA-Z])\$/g, '$1')
+    // Handle variable names with primes (e.g., $a'$ -> a', $x'$ -> x')
+    .replace(/\$([a-zA-Z])'\$/g, "$1'")
     // Fix text that might be wrapped in LaTeX delimiters but shouldn't be
     .replace(/\$Simplifyingeachsidegives\$/g, 'Simplifying each side gives')
     .replace(/\$Simplifyinggives\$/g, 'Simplifying gives')
@@ -174,6 +179,56 @@ export function MathRenderer({ children, className = "" }: { children: string; c
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/([a-z])(\d)/g, '$1 $2')
     .replace(/(\d)([a-z])/g, '$1 $2')
+
+  // First, fix specific concatenated text patterns BEFORE checking for LaTeX
+  .replace(/\$(andamathbook|savingstoreacha|whichroundsto|saved\+|Acoupongiveshima|Weneedtofind|satisfyingthebalance|Friendsplitcheck)\$/gi, (match, word) => {
+    // Unwrap and add proper spacing
+    if (word === 'andamathbook') return 'and a math book'
+    if (word === 'savingstoreacha') return 'savings to reach a'
+    if (word === 'whichroundsto') return 'which rounds to'
+    if (word === 'saved+') return 'saved +'
+    return word
+  })
+
+  // Detect and unwrap plain text that's incorrectly wrapped in $...$ delimiters
+  // If a $...$ block contains mostly plain text (not LaTeX commands), unwrap it
+  .replace(/\$([^$]+)\$/g, (match, content) => {
+    // Trim whitespace
+    const trimmed = content.trim()
+    
+    // Check if content looks like plain text (not LaTeX)
+    const hasLatexCommands = /\\[a-zA-Z]|\\[{}[\]]|\\[^a-zA-Z]|_\{|\^\{|frac|sqrt|sum|int|prod|lim|times|div|pm|leq|geq|neq|approx|infty/.test(trimmed)
+    const hasMathSymbols = /[×÷±≤≥≠≈∞∑∏∫√]/.test(trimmed)
+    const hasSubscripts = /_[a-zA-Z0-9]|\^[a-zA-Z0-9]/.test(trimmed)
+    
+    // Check for concatenated words (common pattern in the errors)
+    const hasConcatenatedWords = /[a-z][A-Z]|[a-zA-Z]+\.[a-zA-Z]+|[a-zA-Z]+\d+[a-zA-Z]+/.test(trimmed)
+    
+    // If it's plain text (no LaTeX commands, no math symbols, and either has concatenated words OR is long text)
+    const isPlainText = !hasLatexCommands && !hasMathSymbols && !hasSubscripts && 
+                        (hasConcatenatedWords || 
+                         (trimmed.length > 8 && /^[a-zA-Z0-9\s.,;:!?'"()+-]+$/.test(trimmed)))
+    
+    if (isPlainText) {
+      // Unwrap - return the content without $ delimiters
+      // Also fix spacing for concatenated words
+      return trimmed
+        .replace(/([a-z])([A-Z])/g, '$1 $2')  // Add space between camelCase
+        .replace(/([a-zA-Z]+)\.([A-Z][a-zA-Z]+)/g, '$1. $2')  // Add space after period before capital
+        .replace(/([a-zA-Z]+)(\d+)([A-Z][a-zA-Z]+)/g, '$1 $2 $3')  // Add space around numbers
+    }
+    // Keep as LaTeX
+    return match
+  })
+
+  // Fix concatenated words even if not wrapped in $ (as a fallback)
+  .replace(/(andamathbook|savingstoreacha|whichroundsto)/gi, (match) => {
+    if (match.toLowerCase() === 'andamathbook') return 'and a math book'
+    if (match.toLowerCase() === 'savingstoreacha') return 'savings to reach a'
+    if (match.toLowerCase() === 'whichroundsto') return 'which rounds to'
+    return match
+  })
+  .replace(/(saved)\+(\d)/g, '$1 + $2')  // Fix "saved+8.00" -> "saved + 8.00"
 
   // Split by $$ for display math and $ for inline math
   // Use non-greedy matching and handle multi-line content
