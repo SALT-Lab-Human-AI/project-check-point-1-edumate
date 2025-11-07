@@ -666,6 +666,26 @@ async def get_student_stats(student_id: str):
         cursor.execute("SELECT COUNT(*) as count FROM s2_sessions WHERE student_id = ?", (student_id,))
         s2_count = cursor.fetchone()["count"] or 0
         
+        # Get today's total session time across all modules
+        from datetime import date
+        today = date.today().isoformat()
+        cursor.execute("""
+            SELECT SUM(total_time_seconds) as today_total_time
+            FROM total_time_tracking
+            WHERE student_id = ? AND session_date = ?
+        """, (student_id, today))
+        today_time_result = cursor.fetchone()
+        today_total_time_seconds = today_time_result["today_total_time"] or 0 if today_time_result else 0
+        
+        # Get today's quiz count
+        cursor.execute("""
+            SELECT COUNT(*) as today_quizzes
+            FROM quiz_attempts
+            WHERE student_id = ? AND DATE(completed_at) = ?
+        """, (student_id, today))
+        today_quiz_result = cursor.fetchone()
+        today_quiz_count = today_quiz_result["today_quizzes"] or 0 if today_quiz_result else 0
+        
         # Recent quiz attempts
         cursor.execute("""
             SELECT quiz_topic as topic, score_percentage, completed_at, total_questions, correct_answers
@@ -810,11 +830,108 @@ async def get_student_stats(student_id: str):
                 "accuracy": round((quiz_stats.get("total_correct", 0) or 0) / max(quiz_stats.get("total_questions", 1) or 1, 1) * 100, 2),
                 "s1_sessions": s1_count,
                 "s2_sessions": s2_count,
+                "today_total_time_seconds": today_total_time_seconds,
+                "today_quiz_count": today_quiz_count,
                 "recent_quizzes": recent_quizzes,
                 "recent_activities": recent_activities
             }
         }
     except Exception as e:
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.get("/goals/student/{student_id}")
+async def get_daily_goals(student_id: str):
+    """Get daily goals for a student (today's goals)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        from datetime import date
+        today = date.today().isoformat()
+        
+        cursor.execute("""
+            SELECT target_time_seconds, target_quizzes
+            FROM daily_goals
+            WHERE student_id = ? AND goal_date = ?
+        """, (student_id, today))
+        
+        goal = cursor.fetchone()
+        
+        if goal:
+            return {
+                "success": True,
+                "goals": {
+                    "target_time_seconds": goal["target_time_seconds"],
+                    "target_quizzes": goal["target_quizzes"]
+                }
+            }
+        else:
+            # Return default goals if none set
+            return {
+                "success": True,
+                "goals": {
+                    "target_time_seconds": 1800,  # 30 minutes default
+                    "target_quizzes": 2  # 2 quizzes default
+                }
+            }
+    except Exception as e:
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
+@app.post("/goals/student/{student_id}")
+async def set_daily_goals(student_id: str, payload: dict):
+    """Set or update daily goals for a student"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        from datetime import date
+        today = date.today().isoformat()
+        
+        target_time_seconds = payload.get("target_time_seconds", 1800)
+        target_quizzes = payload.get("target_quizzes", 2)
+        
+        # Check if goal already exists for today
+        cursor.execute("""
+            SELECT id FROM daily_goals
+            WHERE student_id = ? AND goal_date = ?
+        """, (student_id, today))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing goal
+            cursor.execute("""
+                UPDATE daily_goals
+                SET target_time_seconds = ?,
+                    target_quizzes = ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+            """, (target_time_seconds, target_quizzes, existing["id"]))
+        else:
+            # Create new goal
+            goal_id = generate_id()
+            cursor.execute("""
+                INSERT INTO daily_goals
+                (id, student_id, target_time_seconds, target_quizzes, goal_date)
+                VALUES (?, ?, ?, ?, ?)
+            """, (goal_id, student_id, target_time_seconds, target_quizzes, today))
+        
+        conn.commit()
+        return {
+            "success": True,
+            "goals": {
+                "target_time_seconds": target_time_seconds,
+                "target_quizzes": target_quizzes
+            }
+        }
+    except Exception as e:
+        conn.rollback()
         return {"error": str(e), "success": False}
     finally:
         conn.close()

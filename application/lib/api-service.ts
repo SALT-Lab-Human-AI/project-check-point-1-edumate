@@ -182,6 +182,8 @@ export async function getStudentStats(studentId: string): Promise<{
     accuracy: number
     s1_sessions: number
     s2_sessions: number
+    today_total_time_seconds: number
+    today_quiz_count: number
     recent_quizzes: any[]
     recent_activities: any[]
   }
@@ -201,6 +203,35 @@ export async function recordTimeSpent(payload: {
   session_ended_at?: string
 }): Promise<{ success: boolean; error?: string }> {
   return apiCall('/time/track', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+// Daily goals
+export async function getDailyGoals(studentId: string): Promise<{
+  success: boolean
+  goals?: {
+    target_time_seconds: number
+    target_quizzes: number
+  }
+  error?: string
+}> {
+  return apiCall(`/goals/student/${studentId}`)
+}
+
+export async function setDailyGoals(studentId: string, payload: {
+  target_time_seconds: number
+  target_quizzes: number
+}): Promise<{
+  success: boolean
+  goals?: {
+    target_time_seconds: number
+    target_quizzes: number
+  }
+  error?: string
+}> {
+  return apiCall(`/goals/student/${studentId}`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })

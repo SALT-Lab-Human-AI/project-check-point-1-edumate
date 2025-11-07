@@ -18,6 +18,8 @@ interface StudentStats {
   accuracy: number
   s1_sessions: number
   s2_sessions: number
+  today_total_time_seconds: number
+  today_quiz_count: number
   recent_quizzes: any[]
   recent_activities?: any[]
 }

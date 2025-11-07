@@ -1,9 +1,10 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useApp } from "@/store/app-context"
-import { Bell, User, LogOut, Home } from "lucide-react"
+import { User, LogOut, Home, Clock, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,17 +13,77 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { getStudentStats, getDailyGoals } from "@/lib/api-service"
 
 export function NavBar() {
   const { user, logout } = useApp()
   const pathname = usePathname()
   const router = useRouter()
+  const [todayTotalTime, setTodayTotalTime] = useState<number>(0)
+  const [todayQuizCount, setTodayQuizCount] = useState<number>(0)
+  const [targetTime, setTargetTime] = useState<number>(1800) // 30 minutes default
+  const [targetQuizzes, setTargetQuizzes] = useState<number>(2) // 2 quizzes default
+
+  useEffect(() => {
+    if (user && user.role === "student") {
+      const fetchData = async () => {
+        try {
+          // Fetch stats (includes today's time and quiz count)
+          const statsResponse = await getStudentStats(user.id)
+          if (statsResponse.success && statsResponse.stats) {
+            setTodayTotalTime(statsResponse.stats.today_total_time_seconds || 0)
+            setTodayQuizCount(statsResponse.stats.today_quiz_count || 0)
+          }
+          
+          // Fetch daily goals
+          const goalsResponse = await getDailyGoals(user.id)
+          if (goalsResponse.success && goalsResponse.goals) {
+            setTargetTime(goalsResponse.goals.target_time_seconds || 1800)
+            setTargetQuizzes(goalsResponse.goals.target_quizzes || 2)
+          }
+        } catch (err) {
+          console.error("Failed to fetch data:", err)
+        }
+      }
+      
+      fetchData()
+      
+      // Poll every 30 seconds to update the data
+      const interval = setInterval(fetchData, 30000)
+      
+      // Listen for time tracking updates
+      const handleTimeTrackingUpdate = () => {
+        setTimeout(fetchData, 500)
+      }
+      
+      window.addEventListener('timeTrackingUpdated', handleTimeTrackingUpdate as EventListener)
+      
+      return () => {
+        clearInterval(interval)
+        window.removeEventListener('timeTrackingUpdated', handleTimeTrackingUpdate as EventListener)
+      }
+    }
+  }, [user])
 
   if (!user) return null
 
   const handleLogout = () => {
     logout()
     router.push("/login")
+  }
+
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`
+    } else {
+      return `${secs}s`
+    }
   }
 
   const getBreadcrumb = () => {
@@ -50,10 +111,47 @@ export function NavBar() {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5 text-navy" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-yellow rounded-full" />
-          </Button>
+          {user.role === "student" && (
+            <>
+              {/* Daily Goals Section */}
+              <div className="flex items-center gap-3 px-3 py-1.5 bg-primary/5 rounded-lg border border-primary/20">
+                <Target className="w-4 h-4 text-primary" />
+                <div className="flex items-center gap-4">
+                  {/* Time Goal */}
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-text/60" />
+                    <span className="text-xs font-medium text-navy">
+                      {formatTime(todayTotalTime)} / {formatTime(targetTime)}
+                    </span>
+                    <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all"
+                        style={{ 
+                          width: `${Math.min(100, targetTime > 0 ? (todayTotalTime / targetTime) * 100 : 0)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Quiz Goal */}
+                  <div className="flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-text/60" />
+                    <span className="text-xs font-medium text-navy">
+                      {todayQuizCount} / {targetQuizzes} quizzes
+                    </span>
+                    <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-leaf transition-all"
+                        style={{ 
+                          width: `${Math.min(100, targetQuizzes > 0 ? (todayQuizCount / targetQuizzes) * 100 : 0)}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

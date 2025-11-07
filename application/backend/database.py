@@ -136,6 +136,21 @@ def init_db():
         )
     """)
     
+    # Daily goals table - tracks daily targets for students
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS daily_goals (
+            id TEXT PRIMARY KEY,
+            student_id TEXT NOT NULL,
+            target_time_seconds INTEGER NOT NULL DEFAULT 0,
+            target_quizzes INTEGER NOT NULL DEFAULT 0,
+            goal_date DATE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (student_id) REFERENCES users(id),
+            UNIQUE(student_id, goal_date)
+        )
+    """)
+    
     conn.commit()
     conn.close()
     
