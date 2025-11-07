@@ -11,6 +11,7 @@
 **12**-grade aware  
 **R**etrieval-**A**ugmented **G**eneration  
 **Tutor • Quiz • Parent Dashboard**
+**Deployed URL: https://project-check-point-1-edumate.vercel.app/login**
 
 *Making learning addictive — the right way.*
 
