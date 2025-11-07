@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Lock, TrendingUp, Clock, Target, Calendar, Loader2, UserPlus, Save } from "lucide-react"
-import { getLinkedStudents, getStudentStats, linkAccount, getDailyGoals, setStudentGoalsByParent, updateStudentGradeByParent } from "@/lib/api-service"
+import { getLinkedStudents, getStudentStats, linkAccount, getDailyGoals, setStudentGoalsByParent, updateStudentGradeByParent, getDailyGoalsCompletion } from "@/lib/api-service"
 
 interface Student {
   id: string
@@ -32,6 +32,95 @@ interface StudentStats {
   recent_activities?: any[]
 }
 
+interface CalendarViewProps {
+  year: number
+  month: number
+  completionData: Record<string, { goal_met: boolean }>
+  compact?: boolean
+}
+
+function CalendarView({ year, month, completionData, compact = false }: CalendarViewProps) {
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const firstDayOfMonth = new Date(year, month - 1, 1).getDay()
+  const dayNames = compact ? ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  
+  // Create array of days for the month
+  const days: (number | null)[] = []
+  
+  // Add empty cells for days before the first day of the month
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    days.push(null)
+  }
+  
+  // Add all days of the month
+  for (let day = 1; day <= daysInMonth; day++) {
+    days.push(day)
+  }
+  
+  const getDateString = (day: number): string => {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+  
+  return (
+    <div className="w-full">
+      {/* Day headers */}
+      <div className={`grid grid-cols-7 ${compact ? 'gap-0.5 mb-1' : 'gap-1 mb-2'}`}>
+        {dayNames.map((day) => (
+          <div key={day} className={`text-center ${compact ? 'text-[10px]' : 'text-xs'} font-medium text-text/60 ${compact ? 'py-0.5' : 'py-1'}`}>
+            {day}
+          </div>
+        ))}
+      </div>
+      
+      {/* Calendar grid */}
+      <div className={`grid grid-cols-7 ${compact ? 'gap-0.5' : 'gap-1'}`}>
+        {days.map((day, index) => {
+          if (day === null) {
+            return <div key={index} className={compact ? 'aspect-square min-h-[24px]' : 'aspect-square'} />
+          }
+          
+          const dateStr = getDateString(day)
+          const isGoalMet = completionData[dateStr]?.goal_met || false
+          const isToday = 
+            day === new Date().getDate() &&
+            month === new Date().getMonth() + 1 &&
+            year === new Date().getFullYear()
+          
+          return (
+            <div
+              key={index}
+              className={`
+                ${compact ? 'min-h-[24px]' : 'aspect-square'} flex items-center justify-center relative
+                border border-gray-200 rounded
+                ${isGoalMet ? 'bg-green-500 text-white' : 'bg-white'}
+                ${isToday ? 'border-primary border-2' : ''}
+                ${compact ? 'text-[11px]' : 'text-sm'}
+                ${isGoalMet && isToday ? 'text-white' : ''}
+              `}
+            >
+              <span className={isToday && !isGoalMet ? 'font-bold text-primary' : isGoalMet ? 'font-medium text-white' : ''}>{day}</span>
+            </div>
+          )
+        })}
+      </div>
+      
+      {/* Legend - only show if not compact */}
+      {!compact && (
+        <div className="flex items-center gap-4 mt-4 text-xs text-text/60">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-green-500" />
+            <span>Goal Met</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-white border border-gray-300" />
+            <span>Goal Not Met</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ParentDashboard() {
   const { user, parentControls, updateParentControls } = useApp()
   const router = useRouter()
@@ -50,6 +139,9 @@ export default function ParentDashboard() {
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [goalCompletionData, setGoalCompletionData] = useState<Record<string, Record<string, { goal_met: boolean }>>>({})
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1)
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
 
   useEffect(() => {
     if (!user) {
@@ -126,6 +218,9 @@ export default function ParentDashboard() {
         if (response.students.length > 0 && !selectedStudentId) {
           setSelectedStudentId(response.students[0].id)
         }
+        
+        // Load goal completion data for all students
+        loadGoalCompletionData(response.students.map(s => s.id))
       }
     } catch (err) {
       console.error("Failed to load students:", err)
@@ -133,6 +228,30 @@ export default function ParentDashboard() {
       setLoading(false)
     }
   }
+
+  const loadGoalCompletionData = async (studentIds: string[]) => {
+    const completionMap: Record<string, Record<string, { goal_met: boolean }>> = {}
+    
+    for (const studentId of studentIds) {
+      try {
+        const response = await getDailyGoalsCompletion(studentId, currentYear, currentMonth)
+        if (response.success && response.completion_data) {
+          completionMap[studentId] = response.completion_data
+        }
+      } catch (err) {
+        console.error(`Failed to load goal completion for student ${studentId}:`, err)
+      }
+    }
+    
+    setGoalCompletionData(completionMap)
+  }
+
+  useEffect(() => {
+    if (students.length > 0) {
+      loadGoalCompletionData(students.map(s => s.id))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMonth, currentYear, students.length])
 
   const handleLinkStudent = async () => {
     if (!user || !studentEmail) return
@@ -329,39 +448,45 @@ export default function ParentDashboard() {
     { label: "Linked Students", value: students.length.toString(), icon: Calendar, color: "sky" },
   ]
 
-  // Get recent activity from all students
-  const recentActivity = students.flatMap(student => {
-    const stats = studentStats[student.id]
-    if (!stats) return []
+  // Get recent activity from selected student (or all students if none selected)
+  const recentActivity = (() => {
+    const studentsToShow = selectedStudentId 
+      ? students.filter(s => s.id === selectedStudentId)
+      : students
     
-    // Use recent_activities if available, otherwise fall back to recent_quizzes
-    const activities = stats.recent_activities || stats.recent_quizzes?.map((quiz: any) => ({
-      type: 'quiz',
-      module: 'S3',
-      title: `${quiz.topic} Quiz`,
-      score: `${quiz.correct_answers}/${quiz.total_questions} (${quiz.score_percentage.toFixed(0)}%)`,
-      date: quiz.completed_at,
-      time_spent: null
-    })) || []
-    
-    return activities.slice(0, 3).map((activity: any) => {
-      const moduleNames: Record<string, string> = {
-        'S1': 'S1',
-        'S2': 'S2',
-        'S3': 'S3',
-        'PORTAL': 'Portal'
-      }
+    return studentsToShow.flatMap(student => {
+      const stats = studentStats[student.id]
+      if (!stats) return []
       
-      return {
-        student: student.name,
-        date: new Date(activity.date).toLocaleDateString(),
-        activity: activity.title || activity.activity || `Activity in ${moduleNames[activity.module] || activity.module}`,
-        score: activity.score || null,
-        module: moduleNames[activity.module] || activity.module,
-        timeSpent: activity.time_spent || null
-      }
-    })
-  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
+      // Use recent_activities if available, otherwise fall back to recent_quizzes
+      const activities = stats.recent_activities || stats.recent_quizzes?.map((quiz: any) => ({
+        type: 'quiz',
+        module: 'S3',
+        title: `${quiz.topic} Quiz`,
+        score: `${quiz.correct_answers}/${quiz.total_questions} (${quiz.score_percentage.toFixed(0)}%)`,
+        date: quiz.completed_at,
+        time_spent: null
+      })) || []
+      
+      return activities.map((activity: any) => {
+        const moduleNames: Record<string, string> = {
+          'S1': 'S1',
+          'S2': 'S2',
+          'S3': 'S3',
+          'PORTAL': 'Portal'
+        }
+        
+        return {
+          student: student.name,
+          date: new Date(activity.date).toLocaleDateString(),
+          activity: activity.title || activity.activity || `Activity in ${moduleNames[activity.module] || activity.module}`,
+          score: activity.score || null,
+          module: moduleNames[activity.module] || activity.module,
+          timeSpent: activity.time_spent || null
+        }
+      })
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
+  })()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -707,96 +832,206 @@ export default function ParentDashboard() {
           </Card>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              {analyticsData.map((stat) => {
-                const Icon = stat.icon
-                return (
-                  <Card key={stat.label} className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <Icon className="w-5 h-5" style={{ color: `var(--color-${stat.color})` }} />
-                    </div>
-                    <div className="text-2xl font-bold text-navy mb-1">{stat.value}</div>
-                    <div className="text-xs text-text/60">{stat.label}</div>
-                  </Card>
-                )
-              })}
-            </div>
-
-            <Card className="p-6">
-              <h3 className="text-lg font-bold text-navy mb-4">Recent Activity</h3>
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                </div>
-              ) : recentActivity.length > 0 ? (
-                <div className="space-y-3">
-                  {recentActivity.map((activity, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start justify-between pb-3 border-b border-gray-line last:border-0"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-navy">{activity.activity}</span>
-                          <span className="text-xs px-2 py-0.5 bg-sky/20 text-navy rounded-full">{activity.module}</span>
-                          <span className="text-xs text-text/60">({activity.student})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-text/60">{activity.date}</p>
-                          {activity.timeSpent && (
-                            <span className="text-xs text-primary flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {activity.timeSpent}
-                            </span>
-                          )}
-                        </div>
+            {/* Metrics and Calendar Row */}
+            <div className="flex gap-4">
+              {/* 2x2 Grid of Metric Boxes */}
+              <div className="grid grid-cols-2 gap-4 flex-1">
+                {analyticsData.map((stat) => {
+                  const Icon = stat.icon
+                  return (
+                    <Card key={stat.label} className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <Icon className="w-5 h-5" style={{ color: `var(--color-${stat.color})` }} />
                       </div>
-                      {activity.score && (
-                        <span className="text-sm font-semibold text-leaf">{activity.score}</span>
+                      <div className="text-2xl font-bold text-navy mb-1">{stat.value}</div>
+                      <div className="text-xs text-text/60">{stat.label}</div>
+                    </Card>
+                  )
+                })}
+              </div>
+
+              {/* Calendar Component - Square shape, same height as boxes */}
+              {students.length > 0 && selectedStudentId && (
+                <Card className="p-3 w-[280px] flex-shrink-0 flex flex-col">
+                  <div className="flex flex-col items-center mb-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 mb-1.5 w-full">
+                      {students.length > 1 && (
+                        <Select
+                          value={selectedStudentId}
+                          onValueChange={(value) => {
+                            setSelectedStudentId(value)
+                          }}
+                        >
+                          <SelectTrigger className="w-full h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {students.map((student) => (
+                              <SelectItem key={student.id} value={student.id}>
+                                {student.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-text/60 text-center py-4">No recent activity</p>
+                    <div className="flex items-center gap-1 w-full justify-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-xs"
+                        onClick={() => {
+                          if (currentMonth === 1) {
+                            setCurrentMonth(12)
+                            setCurrentYear(currentYear - 1)
+                          } else {
+                            setCurrentMonth(currentMonth - 1)
+                          }
+                        }}
+                      >
+                        ←
+                      </Button>
+                      <span className="text-[10px] font-medium min-w-[80px] text-center">
+                        {new Date(currentYear, currentMonth - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-xs"
+                        onClick={() => {
+                          if (currentMonth === 12) {
+                            setCurrentMonth(1)
+                            setCurrentYear(currentYear + 1)
+                          } else {
+                            setCurrentMonth(currentMonth + 1)
+                          }
+                        }}
+                      >
+                        →
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center">
+                    <CalendarView
+                      year={currentYear}
+                      month={currentMonth}
+                      completionData={goalCompletionData[selectedStudentId] || {}}
+                      compact={true}
+                    />
+                  </div>
+                </Card>
               )}
-            </Card>
+            </div>
 
-            {/* Linked Students Section */}
-            {students.length > 0 && (
-              <Card className="p-6">
-                <h3 className="text-lg font-bold text-navy mb-4">Linked Students</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {students.map(student => {
-                    const stats = studentStats[student.id]
-                    return (
-                      <Card key={student.id} className="p-4">
-                        <h4 className="font-bold text-navy mb-2">{student.name}</h4>
-                        <p className="text-sm text-text/60 mb-3">Grade {student.grade}</p>
-                        {stats ? (
-                          <div className="space-y-1 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-text/60">Quizzes:</span>
-                              <span className="font-semibold">{stats.total_quizzes}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-text/60">Accuracy:</span>
-                              <span className="font-semibold">{stats.accuracy.toFixed(0)}%</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-text/60">Avg Score:</span>
-                              <span className="font-semibold">{stats.avg_score.toFixed(0)}%</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-text/60">No activity yet</p>
-                        )}
-                      </Card>
-                    )
-                  })}
+            {/* Recent Activity and Linked Students Side by Side */}
+            <div className="flex gap-4">
+              {/* Recent Activity - Half Width */}
+              <Card className="p-6 flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-navy">Recent Activity</h3>
+                  {selectedStudentId && students.length > 1 && (
+                    <Select
+                      value={selectedStudentId}
+                      onValueChange={(value) => {
+                        setSelectedStudentId(value)
+                      }}
+                    >
+                      <SelectTrigger className="w-[180px] h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map((student) => (
+                          <SelectItem key={student.id} value={student.id}>
+                            {student.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
+                {selectedStudentId && (
+                  <p className="text-xs text-text/60 mb-4">
+                    Showing activity for: <span className="font-medium">{students.find(s => s.id === selectedStudentId)?.name || 'Selected student'}</span>
+                  </p>
+                )}
+                {loading ? (
+                  <div className="flex items-center justify-center py-8 flex-1">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : recentActivity.length > 0 ? (
+                  <div className="space-y-3 flex-1">
+                    {recentActivity.map((activity, i) => (
+                      <div
+                        key={i}
+                        className="flex items-start justify-between pb-3 border-b border-gray-line last:border-0"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-navy">{activity.activity}</span>
+                            <span className="text-xs px-2 py-0.5 bg-sky/20 text-navy rounded-full">{activity.module}</span>
+                            {students.length > 1 && !selectedStudentId && (
+                              <span className="text-xs text-text/60">({activity.student})</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-text/60">{activity.date}</p>
+                            {activity.timeSpent && (
+                              <span className="text-xs text-primary flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {activity.timeSpent}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {activity.score && (
+                          <span className="text-sm font-semibold text-leaf">{activity.score}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-text/60 text-center py-4 flex-1">
+                    {selectedStudentId ? 'No recent activity for this student' : 'No recent activity'}
+                  </p>
+                )}
               </Card>
-            )}
+
+              {/* Linked Students Section - Half Width */}
+              {students.length > 0 && (
+                <Card className="p-6 flex-1 flex flex-col">
+                  <h3 className="text-lg font-bold text-navy mb-4">Linked Students</h3>
+                  <div className="flex flex-col gap-4 flex-1">
+                    {students.map(student => {
+                      const stats = studentStats[student.id]
+                      return (
+                        <Card key={student.id} className="p-4">
+                          <h4 className="font-bold text-navy mb-2">{student.name}</h4>
+                          <p className="text-sm text-text/60 mb-3">Grade {student.grade}</p>
+                          {stats ? (
+                            <div className="space-y-1 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-text/60">Quizzes:</span>
+                                <span className="font-semibold">{stats.total_quizzes}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-text/60">Accuracy:</span>
+                                <span className="font-semibold">{stats.accuracy.toFixed(0)}%</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-text/60">Avg Score:</span>
+                                <span className="font-semibold">{stats.avg_score.toFixed(0)}%</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-text/60">No activity yet</p>
+                          )}
+                        </Card>
+                      )
+                    })}
+                  </div>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       </main>

@@ -271,3 +271,20 @@ export async function updateStudentGradeByParent(parentId: string, studentId: st
     body: JSON.stringify({ grade }),
   })
 }
+
+// Get daily goal completion for a month
+export async function getDailyGoalsCompletion(studentId: string, year: number, month: number): Promise<{
+  success: boolean
+  completion_data?: Record<string, {
+    goal_met: boolean
+    target_time_seconds: number
+    target_quizzes: number
+    actual_time_seconds: number
+    actual_quizzes: number
+  }>
+  year?: number
+  month?: number
+  error?: string
+}> {
+  return apiCall(`/goals/student/${studentId}/month/${year}/${month}`)
+}

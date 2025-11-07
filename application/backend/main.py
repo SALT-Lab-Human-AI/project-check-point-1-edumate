@@ -1005,6 +1005,95 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
         conn.close()
 
 
+@app.get("/goals/student/{student_id}/month/{year}/{month}")
+async def get_daily_goals_completion(student_id: str, year: int, month: int):
+    """Get daily goal completion data for a specific month"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        from datetime import date, datetime
+        from calendar import monthrange
+        
+        # Get first and last day of the month
+        first_day = date(year, month, 1)
+        last_day_num = monthrange(year, month)[1]
+        last_day = date(year, month, last_day_num)
+        
+        # Get all daily goals for this month
+        cursor.execute("""
+            SELECT goal_date, target_time_seconds, target_quizzes
+            FROM daily_goals
+            WHERE student_id = ? AND goal_date >= ? AND goal_date <= ?
+        """, (student_id, first_day.isoformat(), last_day.isoformat()))
+        
+        goals = {row["goal_date"]: row for row in cursor.fetchall()}
+        
+        # Get total time spent per day for this month
+        cursor.execute("""
+            SELECT session_date, SUM(total_time_seconds) as total_time
+            FROM total_time_tracking
+            WHERE student_id = ? AND session_date >= ? AND session_date <= ?
+            GROUP BY session_date
+        """, (student_id, first_day.isoformat(), last_day.isoformat()))
+        
+        time_tracking = {row["session_date"]: row["total_time"] for row in cursor.fetchall()}
+        
+        # Get quiz count per day for this month
+        cursor.execute("""
+            SELECT DATE(completed_at) as quiz_date, COUNT(*) as quiz_count
+            FROM quiz_attempts
+            WHERE student_id = ? AND DATE(completed_at) >= ? AND DATE(completed_at) <= ?
+            GROUP BY DATE(completed_at)
+        """, (student_id, first_day.isoformat(), last_day.isoformat()))
+        
+        quiz_counts = {row["quiz_date"]: row["quiz_count"] for row in cursor.fetchall()}
+        
+        # Build completion data for each day in the month
+        completion_data = {}
+        for day in range(1, last_day_num + 1):
+            current_date = date(year, month, day)
+            date_str = current_date.isoformat()
+            
+            # Get goal for this date (or use default)
+            goal = goals.get(date_str)
+            if goal:
+                target_time = goal["target_time_seconds"]
+                target_quizzes = goal["target_quizzes"]
+            else:
+                # Use default goals if not set
+                target_time = 1800  # 30 minutes
+                target_quizzes = 2
+            
+            # Get actual time and quizzes for this date
+            actual_time = time_tracking.get(date_str, 0) or 0
+            actual_quizzes = quiz_counts.get(date_str, 0) or 0
+            
+            # Check if goals were met
+            time_met = actual_time >= target_time
+            quizzes_met = actual_quizzes >= target_quizzes
+            goal_met = time_met and quizzes_met
+            
+            completion_data[date_str] = {
+                "goal_met": goal_met,
+                "target_time_seconds": target_time,
+                "target_quizzes": target_quizzes,
+                "actual_time_seconds": actual_time,
+                "actual_quizzes": actual_quizzes
+            }
+        
+        return {
+            "success": True,
+            "completion_data": completion_data,
+            "year": year,
+            "month": month
+        }
+    except Exception as e:
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
 @app.post("/students/parent/{parent_id}/student/{student_id}/grade")
 async def update_student_grade_by_parent(parent_id: str, student_id: str, payload: dict):
     """Update a student's grade by their parent (with verification)"""
