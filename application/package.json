@@ -8,7 +8,11 @@
     "lint": "next lint",
     "start": "next start",
     "backend": "./start_backend.sh",
-    "dev:full": "concurrently \"npm run dev\" \"npm run backend\""
+    "dev:full": "concurrently \"npm run dev\" \"npm run backend\"",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -64,6 +68,7 @@
     "zod": "3.25.67"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^18",

@@ -15,16 +15,10 @@ psycopg2-binary
 # ML/AI
 groq
 sentence-transformers
-torch
 numpy
-
-# Vector Database (for setup scripts)
-chromadb
 
 # Data Processing
 tqdm
-datasets
-scikit-learn
 
 # Utilities
 requests

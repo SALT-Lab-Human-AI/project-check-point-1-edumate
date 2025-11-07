@@ -7,9 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from backend.rag_groq_bot import ask_groq            # RAG tutor answer
+from backend.rag_groq_bot import ask_groq, init_vector_table            # RAG tutor answer
 from backend.quiz_gen import generate_quiz_items     # Quiz generator (new module)
-from backend.database import init_db, get_db, hash_password, verify_password, generate_id
+from backend.database import init_db, get_db, get_cursor, return_db, hash_password, verify_password, generate_id
 from datetime import datetime, date
 
 
@@ -19,6 +19,11 @@ app = FastAPI(title="K-12 RAG Tutor API")
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    # Initialize vector table (but don't load model or populate data yet)
+    try:
+        init_vector_table()
+    except Exception as e:
+        print(f"Warning: Could not initialize vector table on startup: {e}")
 
 # === CORS (allow your React dev server; tighten in prod) ===
 app.add_middleware(
@@ -43,15 +48,15 @@ def format_latex(answer: str) -> str:
     
     # Step 0: Fix malformed LaTeX patterns with $ in wrong places (before any other processing)
     # Fix patterns like $\begin{aligned}...$\end${aligned}$ -> \begin{aligned}...\end{aligned}
-    answer = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*?)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
+    answer = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*%s)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
     # Fix patterns like $\begin{aligned}...\end${aligned}$ -> \begin{aligned}...\end{aligned}
-    answer = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*?)\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
+    answer = re.sub(r'\$\\begin\{(\w+)\}([\s\S]*%s)\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
     # Fix patterns like \begin{aligned}$...$\end${aligned} -> \begin{aligned}...\end{aligned}
-    answer = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*?)\$\\end\$\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', answer)
+    answer = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*%s)\$\\end\$\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', answer)
     # Fix patterns like $ \begin{aligned}...$\end${aligned}$ (with space)
-    answer = re.sub(r'\$\s*\\begin\{(\w+)\}([\s\S]*?)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
+    answer = re.sub(r'\$\s*\\begin\{(\w+)\}([\s\S]*%s)\$\\end\$\{(\w+)\}\$', r'\\begin{\1}\2\\end{\3}', answer)
     # Fix patterns where $ appears inside the environment content: \begin{aligned}$content$\end{aligned}
-    answer = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*?)\$\\end\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', answer)
+    answer = re.sub(r'\\begin\{(\w+)\}\$([\s\S]*%s)\$\\end\{(\w+)\}', r'\\begin{\1}\2\\end{\3}', answer)
     # Fix patterns like $\end${aligned} -> \end{aligned}
     answer = re.sub(r'\$\\end\$\{(\w+)\}', r'\\end{\1}', answer)
     # Fix patterns like $\begin${aligned} -> \begin{aligned}
@@ -76,11 +81,11 @@ def format_latex(answer: str) -> str:
     
     # Step 1: Fix the most complex malformed patterns first
     # Pattern: $$\begin${aligned}$$ ... $$$\end${aligned}$
-    answer = re.sub(r'\$\$\\begin\$\{([^}]+)\}\$\$([\s\S]*?)\$\$\$\\end\$\{([^}]+)\}\$', 
+    answer = re.sub(r'\$\$\\begin\$\{([^}]+)\}\$\$([\s\S]*%s)\$\$\$\\end\$\{([^}]+)\}\$', 
                    r'$$\\begin{\1}\2\\end{\3}$$', answer)
     
     # Pattern: $$\begin${aligned}$$ ... $$$\end${aligned}$
-    answer = re.sub(r'\$\$\\begin\$\{([^}]+)\}\$\$([\s\S]*?)\$\$\$\\end\$\{([^}]+)\}\$\$', 
+    answer = re.sub(r'\$\$\\begin\$\{([^}]+)\}\$\$([\s\S]*%s)\$\$\$\\end\$\{([^}]+)\}\$\$', 
                    r'$$\\begin{\1}\2\\end{\3}$$', answer)
     
     # Step 2: Fix individual malformed begin/end tags
@@ -104,32 +109,32 @@ def format_latex(answer: str) -> str:
     
     # Step 5: Handle standard LaTeX patterns
     # Handle block math environments
-    answer = re.sub(r"\\\[([\s\S]*?)\\\]", r"$$\1$$", answer)
+    answer = re.sub(r"\\\[([\s\S]*%s)\\\]", r"$$\1$$", answer)
     
     # Handle \begin{aligned}...\end{aligned} blocks
     # First, handle properly formatted ones (after Step 0 fixes malformed patterns)
-    answer = re.sub(r"\\begin\{aligned\}([\s\S]*?)\\end\{aligned\}", r"$$\\begin{aligned}\1\\end{aligned}$$", answer)
+    answer = re.sub(r"\\begin\{aligned\}([\s\S]*%s)\\end\{aligned\}", r"$$\\begin{aligned}\1\\end{aligned}$$", answer)
     
     # Handle \begin{array}...\end{array} blocks
-    answer = re.sub(r"\\begin\{array\}([\s\S]*?)\\end\{array\}", r"$$\\begin{array}\1\\end{array}$$", answer)
+    answer = re.sub(r"\\begin\{array\}([\s\S]*%s)\\end\{array\}", r"$$\\begin{array}\1\\end{array}$$", answer)
     
     # Handle \begin{cases}...\end{cases} blocks
-    answer = re.sub(r"\\begin\{cases\}([\s\S]*?)\\end\{cases\}", r"$$\\begin{cases}\1\\end{cases}$$", answer)
+    answer = re.sub(r"\\begin\{cases\}([\s\S]*%s)\\end\{cases\}", r"$$\\begin{cases}\1\\end{cases}$$", answer)
     
     # Handle \begin{matrix}...\end{matrix} blocks
-    answer = re.sub(r"\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}", r"$$\\begin{matrix}\1\\end{matrix}$$", answer)
+    answer = re.sub(r"\\begin\{matrix\}([\s\S]*%s)\\end\{matrix\}", r"$$\\begin{matrix}\1\\end{matrix}$$", answer)
     
     # Handle \begin{pmatrix}...\end{pmatrix} blocks
-    answer = re.sub(r"\\begin\{pmatrix\}([\s\S]*?)\\end\{pmatrix\}", r"$$\\begin{pmatrix}\1\\end{pmatrix}$$", answer)
+    answer = re.sub(r"\\begin\{pmatrix\}([\s\S]*%s)\\end\{pmatrix\}", r"$$\\begin{pmatrix}\1\\end{pmatrix}$$", answer)
     
     # Handle \begin{vmatrix}...\end{vmatrix} blocks
-    answer = re.sub(r"\\begin\{vmatrix\}([\s\S]*?)\\end\{vmatrix\}", r"$$\\begin{vmatrix}\1\\end{vmatrix}$$", answer)
+    answer = re.sub(r"\\begin\{vmatrix\}([\s\S]*%s)\\end\{vmatrix\}", r"$$\\begin{vmatrix}\1\\end{vmatrix}$$", answer)
     
     # Handle \begin{bmatrix}...\end{bmatrix} blocks
-    answer = re.sub(r"\\begin\{bmatrix\}([\s\S]*?)\\end\{bmatrix\}", r"$$\\begin{bmatrix}\1\\end{bmatrix}$$", answer)
+    answer = re.sub(r"\\begin\{bmatrix\}([\s\S]*%s)\\end\{bmatrix\}", r"$$\\begin{bmatrix}\1\\end{bmatrix}$$", answer)
     
     # Handle inline math
-    answer = re.sub(r"\\\(([\s\S]*?)\\\)", r"$\1$", answer)
+    answer = re.sub(r"\\\(([\s\S]*%s)\\\)", r"$\1$", answer)
     
     # Handle \boxed{...} expressions - these should be block math
     answer = re.sub(r"\\boxed\{([^}]+)\}", r"$$\\boxed{\1}$$", answer)
@@ -171,7 +176,7 @@ def format_latex(answer: str) -> str:
     # Step 8: Fix escaped dollar signs in currency contexts (e.g., \$7 -> $7)
     # Only replace escaped dollar signs followed by numbers (currency), not math expressions
     # Pattern: \$ followed by a number (not a math expression)
-    answer = re.sub(r'\\\$(\d+(?:,\d{3})*(?:\.\d{2})?)', r'$\1', answer)
+    answer = re.sub(r'\\\$(\d+(?:,\d{3})*(?:\.\d{2})%s)', r'$\1', answer)
     
     # Step 9: Ensure proper spacing around block math for better readability
     # Add line breaks before and after $$ blocks if not present (for questions)
@@ -349,11 +354,11 @@ async def quiz_grade(payload: QuizGradePayload):
 async def signup(payload: SignupPayload):
     """Sign up a new user (student or parent)"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         # Check if email already exists
-        cursor.execute("SELECT id FROM users WHERE email = ?", (payload.email,))
+        cursor.execute("SELECT id FROM users WHERE email = %s", (payload.email,))
         if cursor.fetchone():
             return {"error": "Email already registered", "success": False}
         
@@ -368,14 +373,14 @@ async def signup(payload: SignupPayload):
         # Link to parent if parent_email provided
         parent_id = None
         if payload.parent_email:
-            cursor.execute("SELECT id FROM users WHERE email = ? AND role = 'parent'", (payload.parent_email,))
+            cursor.execute("SELECT id FROM users WHERE email = %s AND role = 'parent'", (payload.parent_email,))
             parent = cursor.fetchone()
             if parent:
                 parent_id = parent["id"]
         
         cursor.execute(
             """INSERT INTO users (id, email, password_hash, name, role, grade, parent_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
             (user_id, payload.email, password_hash, payload.name, payload.role, payload.grade, parent_id)
         )
         
@@ -383,14 +388,14 @@ async def signup(payload: SignupPayload):
         if parent_id:
             link_id = generate_id()
             cursor.execute(
-                "INSERT INTO parent_student_links (id, parent_id, student_id) VALUES (?, ?, ?)",
+                "INSERT INTO parent_student_links (id, parent_id, student_id) VALUES (%s, %s, %s)",
                 (link_id, parent_id, user_id)
             )
         
         conn.commit()
         
         # Return user (without password)
-        cursor.execute("SELECT id, email, name, role, grade FROM users WHERE id = ?", (user_id,))
+        cursor.execute("SELECT id, email, name, role, grade FROM users WHERE id = %s", (user_id,))
         user = cursor.fetchone()
         
         return {
@@ -407,18 +412,19 @@ async def signup(payload: SignupPayload):
         conn.rollback()
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+        return_db(conn)
 
 
 @app.post("/auth/login")
 async def login(payload: LoginPayload):
     """Login user"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         cursor.execute(
-            "SELECT id, email, password_hash, name, role, grade FROM users WHERE email = ? AND role = ?",
+            "SELECT id, email, password_hash, name, role, grade FROM users WHERE email = %s AND role = %s",
             (payload.email, payload.role)
         )
         user = cursor.fetchone()
@@ -442,18 +448,19 @@ async def login(payload: LoginPayload):
     except Exception as e:
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+        return_db(conn)
 
 
 @app.post("/auth/link-account")
 async def link_account(payload: LinkAccountPayload):
     """Link a student account to a parent account"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         # Get student by email
-        cursor.execute("SELECT id FROM users WHERE email = ? AND role = 'student'", (payload.student_email,))
+        cursor.execute("SELECT id FROM users WHERE email = %s AND role = 'student'", (payload.student_email,))
         student = cursor.fetchone()
         
         if not student:
@@ -463,7 +470,7 @@ async def link_account(payload: LinkAccountPayload):
         
         # Check if link already exists
         cursor.execute(
-            "SELECT id FROM parent_student_links WHERE parent_id = ? AND student_id = ?",
+            "SELECT id FROM parent_student_links WHERE parent_id = %s AND student_id = %s",
             (payload.parent_id, student_id)
         )
         if cursor.fetchone():
@@ -472,12 +479,12 @@ async def link_account(payload: LinkAccountPayload):
         # Create link
         link_id = generate_id()
         cursor.execute(
-            "INSERT INTO parent_student_links (id, parent_id, student_id) VALUES (?, ?, ?)",
+            "INSERT INTO parent_student_links (id, parent_id, student_id) VALUES (%s, %s, %s)",
             (link_id, payload.parent_id, student_id)
         )
         
         # Update student's parent_id
-        cursor.execute("UPDATE users SET parent_id = ? WHERE id = ?", (payload.parent_id, student_id))
+        cursor.execute("UPDATE users SET parent_id = %s WHERE id = %s", (payload.parent_id, student_id))
         
         conn.commit()
         return {"success": True, "message": "Account linked successfully"}
@@ -485,14 +492,16 @@ async def link_account(payload: LinkAccountPayload):
         conn.rollback()
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.get("/auth/students/{parent_id}")
 async def get_linked_students(parent_id: str):
     """Get all students linked to a parent"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         cursor.execute("""
@@ -507,7 +516,9 @@ async def get_linked_students(parent_id: str):
     except Exception as e:
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 # === Quiz tracking endpoints ===
@@ -515,7 +526,7 @@ async def get_linked_students(parent_id: str):
 async def track_quiz(payload: QuizTrackingPayload):
     """Track a quiz attempt"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         attempt_id = generate_id()
@@ -523,7 +534,7 @@ async def track_quiz(payload: QuizTrackingPayload):
             INSERT INTO quiz_attempts 
             (id, student_id, quiz_topic, quiz_grade, quiz_difficulty, total_questions, 
              correct_answers, score_percentage, quiz_items, answers)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             attempt_id,
             payload.student_id,
@@ -543,14 +554,16 @@ async def track_quiz(payload: QuizTrackingPayload):
         conn.rollback()
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.post("/time/track")
 async def track_time(payload: dict):
     """Record time spent in a module - either as a session or cumulative total"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         student_id = payload.get("student_id")
@@ -576,14 +589,14 @@ async def track_time(payload: dict):
             cursor.execute("""
                 INSERT INTO session_time_tracking 
                 (id, student_id, module, time_spent_seconds, session_date, session_started_at, session_ended_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (session_id, student_id, module, time_spent_seconds, today, session_started_at, session_ended_at))
             
             # Also update cumulative total
             cursor.execute("""
                 SELECT id, total_time_seconds 
                 FROM total_time_tracking 
-                WHERE student_id = ? AND module = ? AND session_date = ?
+                WHERE student_id = %s AND module = %s AND session_date = %s
             """, (student_id, module, today))
             
             total_record = cursor.fetchone()
@@ -591,15 +604,15 @@ async def track_time(payload: dict):
                 new_total = total_record["total_time_seconds"] + time_spent_seconds
                 cursor.execute("""
                     UPDATE total_time_tracking 
-                    SET total_time_seconds = ?, last_updated = datetime('now')
-                    WHERE id = ?
+                    SET total_time_seconds = %s, last_updated = datetime('now')
+                    WHERE id = %s
                 """, (new_total, total_record["id"]))
             else:
                 total_id = generate_id()
                 cursor.execute("""
                     INSERT INTO total_time_tracking 
                     (id, student_id, module, total_time_seconds, session_date)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s)
                 """, (total_id, student_id, module, time_spent_seconds, today))
         
         elif update_total_only:
@@ -607,7 +620,7 @@ async def track_time(payload: dict):
             cursor.execute("""
                 SELECT id, total_time_seconds 
                 FROM total_time_tracking 
-                WHERE student_id = ? AND module = ? AND session_date = ?
+                WHERE student_id = %s AND module = %s AND session_date = %s
             """, (student_id, module, today))
             
             total_record = cursor.fetchone()
@@ -615,15 +628,15 @@ async def track_time(payload: dict):
                 new_total = total_record["total_time_seconds"] + time_spent_seconds
                 cursor.execute("""
                     UPDATE total_time_tracking 
-                    SET total_time_seconds = ?, last_updated = datetime('now')
-                    WHERE id = ?
+                    SET total_time_seconds = %s, last_updated = datetime('now')
+                    WHERE id = %s
                 """, (new_total, total_record["id"]))
             else:
                 total_id = generate_id()
                 cursor.execute("""
                     INSERT INTO total_time_tracking 
                     (id, student_id, module, total_time_seconds, session_date)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s)
                 """, (total_id, student_id, module, time_spent_seconds, today))
         else:
             return {"error": "Invalid request: must specify is_session or update_total_only", "success": False}
@@ -635,14 +648,16 @@ async def track_time(payload: dict):
         print(f"[Time Track Error] {e}")
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.get("/stats/student/{student_id}")
 async def get_student_stats(student_id: str):
     """Get statistics for a student"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         # Quiz statistics
@@ -654,16 +669,16 @@ async def get_student_stats(student_id: str):
                 SUM(total_questions) as total_questions,
                 MAX(completed_at) as last_quiz_date
             FROM quiz_attempts
-            WHERE student_id = ?
+            WHERE student_id = %s
         """, (student_id,))
         quiz_stats = dict(cursor.fetchone() or {})
         
         # S1 sessions count
-        cursor.execute("SELECT COUNT(*) as count FROM s1_sessions WHERE student_id = ?", (student_id,))
+        cursor.execute("SELECT COUNT(*) as count FROM s1_sessions WHERE student_id = %s", (student_id,))
         s1_count = cursor.fetchone()["count"] or 0
         
         # S2 sessions count
-        cursor.execute("SELECT COUNT(*) as count FROM s2_sessions WHERE student_id = ?", (student_id,))
+        cursor.execute("SELECT COUNT(*) as count FROM s2_sessions WHERE student_id = %s", (student_id,))
         s2_count = cursor.fetchone()["count"] or 0
         
         # Get today's total session time across all modules
@@ -672,7 +687,7 @@ async def get_student_stats(student_id: str):
         cursor.execute("""
             SELECT SUM(total_time_seconds) as today_total_time
             FROM total_time_tracking
-            WHERE student_id = ? AND session_date = ?
+            WHERE student_id = %s AND session_date = %s
         """, (student_id, today))
         today_time_result = cursor.fetchone()
         today_total_time_seconds = today_time_result["today_total_time"] or 0 if today_time_result else 0
@@ -681,7 +696,7 @@ async def get_student_stats(student_id: str):
         cursor.execute("""
             SELECT COUNT(*) as today_quizzes
             FROM quiz_attempts
-            WHERE student_id = ? AND DATE(completed_at) = ?
+            WHERE student_id = %s AND DATE(completed_at) = %s
         """, (student_id, today))
         today_quiz_result = cursor.fetchone()
         today_quiz_count = today_quiz_result["today_quizzes"] or 0 if today_quiz_result else 0
@@ -690,7 +705,7 @@ async def get_student_stats(student_id: str):
         cursor.execute("""
             SELECT quiz_topic as topic, score_percentage, completed_at, total_questions, correct_answers
             FROM quiz_attempts
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY completed_at DESC
             LIMIT 10
         """, (student_id,))
@@ -704,7 +719,7 @@ async def get_student_stats(student_id: str):
                    COALESCE(session_ended_at, created_at) as session_ended_at, 
                    created_at
             FROM session_time_tracking
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY COALESCE(session_ended_at, created_at) DESC
             LIMIT 20
         """, (student_id,))
@@ -839,14 +854,16 @@ async def get_student_stats(student_id: str):
     except Exception as e:
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.get("/goals/student/{student_id}")
 async def get_daily_goals(student_id: str):
     """Get daily goals for a student (today's goals, or most recent if today's doesn't exist)"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         from datetime import date
@@ -856,7 +873,7 @@ async def get_daily_goals(student_id: str):
         cursor.execute("""
             SELECT target_time_seconds, target_quizzes
             FROM daily_goals
-            WHERE student_id = ? AND goal_date = ?
+            WHERE student_id = %s AND goal_date = %s
         """, (student_id, today))
         
         goal = cursor.fetchone()
@@ -874,7 +891,7 @@ async def get_daily_goals(student_id: str):
         cursor.execute("""
             SELECT target_time_seconds, target_quizzes
             FROM daily_goals
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY goal_date DESC
             LIMIT 1
         """, (student_id,))
@@ -901,14 +918,16 @@ async def get_daily_goals(student_id: str):
     except Exception as e:
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.post("/goals/student/{student_id}")
 async def set_daily_goals(student_id: str, payload: dict):
     """Set or update daily goals for a student (deprecated - use parent endpoint)"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         from datetime import date
@@ -920,7 +939,7 @@ async def set_daily_goals(student_id: str, payload: dict):
         # Check if goal already exists for today
         cursor.execute("""
             SELECT id FROM daily_goals
-            WHERE student_id = ? AND goal_date = ?
+            WHERE student_id = %s AND goal_date = %s
         """, (student_id, today))
         
         existing = cursor.fetchone()
@@ -929,10 +948,10 @@ async def set_daily_goals(student_id: str, payload: dict):
             # Update existing goal
             cursor.execute("""
                 UPDATE daily_goals
-                SET target_time_seconds = ?,
-                    target_quizzes = ?,
+                SET target_time_seconds = %s,
+                    target_quizzes = %s,
                     updated_at = datetime('now')
-                WHERE id = ?
+                WHERE id = %s
             """, (target_time_seconds, target_quizzes, existing["id"]))
         else:
             # Create new goal
@@ -940,7 +959,7 @@ async def set_daily_goals(student_id: str, payload: dict):
             cursor.execute("""
                 INSERT INTO daily_goals
                 (id, student_id, target_time_seconds, target_quizzes, goal_date)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
             """, (goal_id, student_id, target_time_seconds, target_quizzes, today))
         
         conn.commit()
@@ -955,7 +974,9 @@ async def set_daily_goals(student_id: str, payload: dict):
         conn.rollback()
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.post("/goals/parent/{parent_id}/student/{student_id}")
@@ -963,13 +984,13 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
     """Set or update daily goals for a student by their parent (with verification).
     Goals persist across days until changed."""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         # Verify parent-student relationship
         cursor.execute("""
             SELECT id FROM parent_student_links
-            WHERE parent_id = ? AND student_id = ?
+            WHERE parent_id = %s AND student_id = %s
         """, (parent_id, student_id))
         
         link = cursor.fetchone()
@@ -989,7 +1010,7 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
         # Check if goal already exists for today
         cursor.execute("""
             SELECT id FROM daily_goals
-            WHERE student_id = ? AND goal_date = ?
+            WHERE student_id = %s AND goal_date = %s
         """, (student_id, today))
         
         existing = cursor.fetchone()
@@ -998,10 +1019,10 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
             # Update existing goal for today
             cursor.execute("""
                 UPDATE daily_goals
-                SET target_time_seconds = ?,
-                    target_quizzes = ?,
+                SET target_time_seconds = %s,
+                    target_quizzes = %s,
                     updated_at = datetime('now')
-                WHERE id = ?
+                WHERE id = %s
             """, (target_time_seconds, target_quizzes, existing["id"]))
         else:
             # Create new goal for today (will persist as most recent goal)
@@ -1009,7 +1030,7 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
             cursor.execute("""
                 INSERT INTO daily_goals
                 (id, student_id, target_time_seconds, target_quizzes, goal_date)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
             """, (goal_id, student_id, target_time_seconds, target_quizzes, today))
         
         conn.commit()
@@ -1024,14 +1045,16 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
         conn.rollback()
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.get("/goals/student/{student_id}/month/{year}/{month}")
 async def get_daily_goals_completion(student_id: str, year: int, month: int):
     """Get daily goal completion data for a specific month"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         from datetime import date, datetime
@@ -1046,7 +1069,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         cursor.execute("""
             SELECT goal_date, target_time_seconds, target_quizzes
             FROM daily_goals
-            WHERE student_id = ? AND goal_date >= ? AND goal_date <= ?
+            WHERE student_id = %s AND goal_date >= ? AND goal_date <= ?
         """, (student_id, first_day.isoformat(), last_day.isoformat()))
         
         goals = {row["goal_date"]: row for row in cursor.fetchall()}
@@ -1055,7 +1078,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         cursor.execute("""
             SELECT target_time_seconds, target_quizzes
             FROM daily_goals
-            WHERE student_id = ?
+            WHERE student_id = %s
             ORDER BY goal_date DESC
             LIMIT 1
         """, (student_id,))
@@ -1068,7 +1091,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         cursor.execute("""
             SELECT session_date, SUM(total_time_seconds) as total_time
             FROM total_time_tracking
-            WHERE student_id = ? AND session_date >= ? AND session_date <= ?
+            WHERE student_id = %s AND session_date >= ? AND session_date <= ?
             GROUP BY session_date
         """, (student_id, first_day.isoformat(), last_day.isoformat()))
         
@@ -1078,7 +1101,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         cursor.execute("""
             SELECT DATE(completed_at) as quiz_date, COUNT(*) as quiz_count
             FROM quiz_attempts
-            WHERE student_id = ? AND DATE(completed_at) >= ? AND DATE(completed_at) <= ?
+            WHERE student_id = %s AND DATE(completed_at) >= ? AND DATE(completed_at) <= ?
             GROUP BY DATE(completed_at)
         """, (student_id, first_day.isoformat(), last_day.isoformat()))
         
@@ -1126,20 +1149,22 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
     except Exception as e:
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)
 
 
 @app.post("/students/parent/{parent_id}/student/{student_id}/grade")
 async def update_student_grade_by_parent(parent_id: str, student_id: str, payload: dict):
     """Update a student's grade by their parent (with verification)"""
     conn = get_db()
-    cursor = conn.cursor()
+    cursor = get_cursor(conn)
     
     try:
         # Verify parent-student relationship
         cursor.execute("""
             SELECT id FROM parent_student_links
-            WHERE parent_id = ? AND student_id = ?
+            WHERE parent_id = %s AND student_id = %s
         """, (parent_id, student_id))
         
         link = cursor.fetchone()
@@ -1159,7 +1184,7 @@ async def update_student_grade_by_parent(parent_id: str, student_id: str, payloa
         cursor.execute("""
             UPDATE users
             SET grade = ?
-            WHERE id = ? AND role = 'student'
+            WHERE id = %s AND role = 'student'
         """, (grade, student_id))
         
         if cursor.rowcount == 0:
@@ -1168,7 +1193,7 @@ async def update_student_grade_by_parent(parent_id: str, student_id: str, payloa
         conn.commit()
         
         # Return updated student info
-        cursor.execute("SELECT id, email, name, grade FROM users WHERE id = ?", (student_id,))
+        cursor.execute("SELECT id, email, name, grade FROM users WHERE id = %s", (student_id,))
         student = cursor.fetchone()
         
         return {
@@ -1184,4 +1209,6 @@ async def update_student_grade_by_parent(parent_id: str, student_id: str, payloa
         conn.rollback()
         return {"error": str(e), "success": False}
     finally:
-        conn.close()
+        cursor.close()
+
+        return_db(conn)

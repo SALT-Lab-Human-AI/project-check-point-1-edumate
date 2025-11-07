@@ -2,7 +2,7 @@ import re
 import json
 from typing import List, Dict, Any, Optional
 
-from backend.rag_groq_bot import collection, embed_model, client, GROQ_MODEL
+from backend.rag_groq_bot import collection, get_embed_model, client, GROQ_MODEL
 
 
 def _normalize_latex(md: str) -> str:
@@ -223,7 +223,7 @@ def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "m
     """
     # 1) Retrieve context
     query = f"{topic} grade {grade} difficulty {difficulty}"
-    q_emb = embed_model.encode(query).tolist()
+    q_emb = get_embed_model().encode(query).tolist()
     res = collection.query(query_embeddings=[q_emb], n_results=12)
     docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
     context = ("\n\n---\n".join(docs))[:9000]
