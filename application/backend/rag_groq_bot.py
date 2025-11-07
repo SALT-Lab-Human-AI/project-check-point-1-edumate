@@ -2,6 +2,7 @@
 import json
 import uuid
 import os
+import threading
 from tqdm import tqdm
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -181,38 +182,70 @@ def ask_groq(question: str, grade=5) -> str:
     Returns the complete answer (no token limit) and supports complex formulas.
     """
     try:
-        # Generate query embedding (lazy load model if needed)
-        query_embed = get_embed_model().encode(question).tolist()
+        context = "No additional context available."
         
-        # Connect to database and perform similarity search
-        conn = psycopg2.connect(DATABASE_URL)
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
+        # Try to get RAG context from vector database (if available)
         try:
-            # Use cosine similarity to find top 3 most similar documents
-            # Convert query embedding to PostgreSQL vector format
-            query_embed_str = '[' + ','.join(map(str, query_embed)) + ']'
-            cursor.execute(
-                f"""
-                SELECT document, question
-                FROM {COLLECTION_NAME}
-                ORDER BY embedding <=> %s::vector
-                LIMIT 3
-                """,
-                (query_embed_str,)
-            )
+            # Check if vector table has data (quick check)
+            conn_check = psycopg2.connect(DATABASE_URL)
+            cursor_check = conn_check.cursor()
+            try:
+                cursor_check.execute(f"SELECT COUNT(*) FROM {COLLECTION_NAME}")
+                count = cursor_check.fetchone()[0]
+            finally:
+                cursor_check.close()
+                conn_check.close()
             
-            results = cursor.fetchall()
-            
-            if results:
-                # Combine documents for context
-                context_parts = [row['document'] for row in results]
-                context = " ".join(context_parts)
+            # Only try to use RAG if we have data in the vector table
+            if count > 0:
+                # Generate query embedding (lazy load model if needed)
+                query_embed = get_embed_model().encode(question).tolist()
+                
+                # Connect to database and perform similarity search
+                conn = psycopg2.connect(DATABASE_URL)
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                
+                try:
+                    # Use cosine similarity to find top 3 most similar documents
+                    # Convert query embedding to PostgreSQL vector format
+                    query_embed_str = '[' + ','.join(map(str, query_embed)) + ']'
+                    cursor.execute(
+                        f"""
+                        SELECT document, question
+                        FROM {COLLECTION_NAME}
+                        ORDER BY embedding <=> %s::vector
+                        LIMIT 3
+                        """,
+                        (query_embed_str,)
+                    )
+                    
+                    results = cursor.fetchall()
+                    
+                    if results:
+                        # Combine documents for context
+                        context_parts = [row['document'] for row in results]
+                        context = " ".join(context_parts)
+                finally:
+                    cursor.close()
+                    conn.close()
             else:
-                context = "No additional context available."
-        finally:
-            cursor.close()
-            conn.close()
+                # Vector table is empty - try to populate it in background (non-blocking)
+                # But don't wait for it - just proceed without RAG context
+                print(f"Vector table is empty. Will populate in background.")
+                try:
+                    # Try to populate, but don't block if it fails
+                    def populate_async():
+                        try:
+                            populate_vector_table()
+                        except Exception as e:
+                            print(f"Background population failed: {e}")
+                    thread = threading.Thread(target=populate_async, daemon=True)
+                    thread.start()
+                except Exception as e:
+                    print(f"Could not start background population: {e}")
+        except Exception as e:
+            print(f"Warning: Could not access vector database: {e}")
+            # Continue without RAG context - will still work with Groq
 
         # Grade-based hint
         grade_hint = get_grade_hint(grade)
