@@ -38,10 +38,10 @@ async def startup_event():
 # === CORS (allow your React dev server; tighten in prod) ===
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # e.g. ["http://localhost:3000"] in prod
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],          # Allow all origins
+    allow_credentials=False,      # Must be False when using allow_origins=["*"]
+    allow_methods=["*"],          # Allow all methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],          # Allow all headers
 )
 
 # === LaTeX formatter for frontend KaTeX ===
