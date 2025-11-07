@@ -254,3 +254,20 @@ export async function setStudentGoalsByParent(parentId: string, studentId: strin
     body: JSON.stringify(payload),
   })
 }
+
+// Update student grade by parent
+export async function updateStudentGradeByParent(parentId: string, studentId: string, grade: number): Promise<{
+  success: boolean
+  student?: {
+    id: string
+    email: string
+    name: string
+    grade: number
+  }
+  error?: string
+}> {
+  return apiCall(`/students/parent/${parentId}/student/${studentId}/grade`, {
+    method: 'POST',
+    body: JSON.stringify({ grade }),
+  })
+}

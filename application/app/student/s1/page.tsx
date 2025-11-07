@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 import { getTopics, generateQuestion, solveS1 } from "@/lib/hybrid-service"
 import { StructuredSolutionDisplay } from "@/components/structured-solution-display"
 import { useTimeTracking } from "@/lib/use-time-tracking"
+import { useApp } from "@/store/app-context"
 
 interface SolutionPhase {
   title: string
@@ -25,7 +25,8 @@ interface SolutionData {
 }
 
 export default function S1Page() {
-  const [grade, setGrade] = useState(8)
+  const { user } = useApp()
+  const grade = user?.grade || 8 // Use grade from user profile (set by parent)
   const [topic, setTopic] = useState("")
   const [question, setQuestion] = useState("")
   const [availableTopics, setAvailableTopics] = useState<string[]>([])
@@ -175,14 +176,6 @@ export default function S1Page() {
             <div className="space-y-4">
               <div>
                 <Label>Grade Level: {grade}</Label>
-                <Slider
-                  value={[grade]}
-                  onValueChange={([v]) => setGrade(v)}
-                  min={1}
-                  max={12}
-                  step={1}
-                  className="mt-2"
-                />
               </div>
 
               <div>

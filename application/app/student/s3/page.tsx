@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, Loader2 } from "lucide-react"
@@ -51,7 +50,7 @@ interface QuizResults {
 
 export default function S3Page() {
   const { user } = useApp()
-  const [grade, setGrade] = useState(8)
+  const grade = user?.grade || 8 // Use grade from user profile (set by parent)
   const [topic, setTopic] = useState("")
   const [questionCount, setQuestionCount] = useState(5)
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium")
@@ -465,14 +464,6 @@ export default function S3Page() {
             <div className="space-y-6">
               <div>
                 <Label>Grade Level: {grade}</Label>
-                <Slider
-                  value={[grade]}
-                  onValueChange={([v]) => setGrade(v)}
-                  min={1}
-                  max={12}
-                  step={1}
-                  className="mt-2"
-                />
               </div>
 
               <div>

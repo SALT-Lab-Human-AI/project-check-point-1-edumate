@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, XCircle, Download, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 import { submitS2, getTopics, generateQuestion } from "@/lib/hybrid-service"
@@ -32,10 +31,10 @@ interface FeedbackData {
 }
 
 export default function S2Page() {
-  const { parentControls } = useApp()
+  const { parentControls, user } = useApp()
+  const grade = user?.grade || 8 // Use grade from user profile (set by parent)
   const [showFeedback, setShowFeedback] = useState(false)
   const [mode, setMode] = useState<"hints" | "direct">("hints")
-  const [grade, setGrade] = useState(8)
   const [topic, setTopic] = useState("")
   const [availableTopics, setAvailableTopics] = useState<string[]>([])
   const [question, setQuestion] = useState("Solve for x: 3x + 7 = 22")
@@ -162,14 +161,6 @@ export default function S2Page() {
                 <div className="space-y-4 mb-4">
                   <div>
                     <Label>Grade Level: {grade}</Label>
-                    <Slider
-                      value={[grade]}
-                      onValueChange={([v]) => setGrade(v)}
-                      min={1}
-                      max={12}
-                      step={1}
-                      className="mt-2"
-                    />
                   </div>
                   
                   <div>

@@ -9,8 +9,9 @@ import { Card } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Lock, TrendingUp, Clock, Target, Calendar, Loader2, UserPlus, Save } from "lucide-react"
-import { getLinkedStudents, getStudentStats, linkAccount, getDailyGoals, setStudentGoalsByParent } from "@/lib/api-service"
+import { getLinkedStudents, getStudentStats, linkAccount, getDailyGoals, setStudentGoalsByParent, updateStudentGradeByParent } from "@/lib/api-service"
 
 interface Student {
   id: string
@@ -40,6 +41,9 @@ export default function ParentDashboard() {
   const [studentGoals, setStudentGoals] = useState<Record<string, { target_time_seconds: number; target_quizzes: number }>>({})
   const [editingGoals, setEditingGoals] = useState<Record<string, { target_time_seconds: number; target_quizzes: number }>>({})
   const [savingGoals, setSavingGoals] = useState<Record<string, boolean>>({})
+  const [editingGrades, setEditingGrades] = useState<Record<string, number>>({})
+  const [savingGrades, setSavingGrades] = useState<Record<string, boolean>>({})
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [linking, setLinking] = useState(false)
   const [studentEmail, setStudentEmail] = useState("")
@@ -108,6 +112,18 @@ export default function ParentDashboard() {
         setStudentStats(statsMap)
         setStudentGoals(goalsMap)
         setEditingGoals(editingMap)
+        
+        // Initialize editing grades with current student grades
+        const gradesMap: Record<string, number> = {}
+        response.students.forEach((student) => {
+          gradesMap[student.id] = student.grade
+        })
+        setEditingGrades(gradesMap)
+        
+        // Set first student as selected by default
+        if (response.students.length > 0 && !selectedStudentId) {
+          setSelectedStudentId(response.students[0].id)
+        }
       }
     } catch (err) {
       console.error("Failed to load students:", err)
@@ -141,22 +157,22 @@ export default function ParentDashboard() {
     }
   }
 
-  const handleSaveGoals = async (studentId: string) => {
-    if (!user || user.role !== "parent") return
+  const handleSaveGoals = async () => {
+    if (!user || user.role !== "parent" || !selectedStudentId) return
     
-    const goals = editingGoals[studentId]
+    const goals = editingGoals[selectedStudentId]
     if (!goals) return
     
-    setSavingGoals(prev => ({ ...prev, [studentId]: true }))
+    setSavingGoals(prev => ({ ...prev, [selectedStudentId]: true }))
     
     try {
-      const response = await setStudentGoalsByParent(user.id, studentId, {
+      const response = await setStudentGoalsByParent(user.id, selectedStudentId, {
         target_time_seconds: goals.target_time_seconds,
         target_quizzes: goals.target_quizzes
       })
       
       if (response.success && response.goals) {
-        setStudentGoals(prev => ({ ...prev, [studentId]: response.goals! }))
+        setStudentGoals(prev => ({ ...prev, [selectedStudentId]: response.goals! }))
         alert("Daily goals updated successfully!")
       } else {
         alert(response.error || "Failed to update goals")
@@ -165,7 +181,50 @@ export default function ParentDashboard() {
       console.error("Failed to save goals:", err)
       alert("Failed to save goals. Please try again.")
     } finally {
-      setSavingGoals(prev => ({ ...prev, [studentId]: false }))
+      setSavingGoals(prev => ({ ...prev, [selectedStudentId]: false }))
+    }
+  }
+
+  const handleSaveGrade = async (studentId: string) => {
+    if (!user || user.role !== "parent") return
+    
+    const newGrade = editingGrades[studentId]
+    if (newGrade === undefined) return
+    
+    const currentStudent = students.find(s => s.id === studentId)
+    if (!currentStudent || currentStudent.grade === newGrade) {
+      return // No change needed
+    }
+    
+    setSavingGrades(prev => ({ ...prev, [studentId]: true }))
+    
+    try {
+      const response = await updateStudentGradeByParent(user.id, studentId, newGrade)
+      
+      if (response.success && response.student) {
+        // Update the student in the students array
+        setStudents(prev => prev.map(s => 
+          s.id === studentId ? { ...s, grade: response.student!.grade } : s
+        ))
+        alert(`Grade updated successfully to Grade ${response.student.grade}!`)
+      } else {
+        alert(response.error || "Failed to update grade")
+        // Revert the editing grade on error
+        setEditingGrades(prev => ({
+          ...prev,
+          [studentId]: currentStudent.grade
+        }))
+      }
+    } catch (err) {
+      console.error("Failed to save grade:", err)
+      alert("Failed to save grade. Please try again.")
+      // Revert the editing grade on error
+      setEditingGrades(prev => ({
+        ...prev,
+        [studentId]: currentStudent.grade
+      }))
+    } finally {
+      setSavingGrades(prev => ({ ...prev, [studentId]: false }))
     }
   }
 
@@ -313,135 +372,6 @@ export default function ParentDashboard() {
           </Card>
         )}
 
-        {students.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-navy mb-4">Linked Students</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {students.map(student => {
-                const stats = studentStats[student.id]
-                const goals = studentGoals[student.id]
-                const editing = editingGoals[student.id]
-                const saving = savingGoals[student.id] || false
-                
-                return (
-                  <Card key={student.id} className="p-4">
-                    <h3 className="font-bold text-navy mb-2">{student.name}</h3>
-                    <p className="text-sm text-text/60 mb-3">Grade {student.grade}</p>
-                    
-                    {stats ? (
-                      <div className="space-y-1 text-sm mb-4">
-                        <div className="flex justify-between">
-                          <span className="text-text/60">Quizzes:</span>
-                          <span className="font-semibold">{stats.total_quizzes}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text/60">Accuracy:</span>
-                          <span className="font-semibold">{stats.accuracy.toFixed(0)}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text/60">Avg Score:</span>
-                          <span className="font-semibold">{stats.avg_score.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-text/60 mb-4">No activity yet</p>
-                    )}
-                    
-                    {/* Daily Goals Section */}
-                    <div className="border-t border-gray-200 pt-4 mt-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Target className="w-4 h-4 text-primary" />
-                        <h4 className="text-sm font-semibold text-navy">Daily Goals</h4>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        {/* Target Time */}
-                        <div>
-                          <Label htmlFor={`time-${student.id}`} className="text-xs text-text/60">
-                            Target Time (minutes)
-                          </Label>
-                          <Input
-                            id={`time-${student.id}`}
-                            type="number"
-                            min={10}
-                            max={180}
-                            value={editing ? Math.floor(editing.target_time_seconds / 60) : 30}
-                            onChange={(e) => {
-                              const minutes = parseInt(e.target.value) || 30
-                              setEditingGoals(prev => ({
-                                ...prev,
-                                [student.id]: {
-                                  ...(prev[student.id] || { target_time_seconds: 1800, target_quizzes: 2 }),
-                                  target_time_seconds: minutes * 60
-                                }
-                              }))
-                            }}
-                            className="mt-1 text-sm"
-                          />
-                        </div>
-                        
-                        {/* Target Quizzes */}
-                        <div>
-                          <Label htmlFor={`quizzes-${student.id}`} className="text-xs text-text/60">
-                            Target Quizzes
-                          </Label>
-                          <Input
-                            id={`quizzes-${student.id}`}
-                            type="number"
-                            min={1}
-                            max={10}
-                            value={editing?.target_quizzes || 2}
-                            onChange={(e) => {
-                              const quizzes = parseInt(e.target.value) || 2
-                              setEditingGoals(prev => ({
-                                ...prev,
-                                [student.id]: {
-                                  ...(prev[student.id] || { target_time_seconds: 1800, target_quizzes: 2 }),
-                                  target_quizzes: quizzes
-                                }
-                              }))
-                            }}
-                            className="mt-1 text-sm"
-                          />
-                        </div>
-                        
-                        {/* Save Button */}
-                        <Button
-                          size="sm"
-                          onClick={() => handleSaveGoals(student.id)}
-                          disabled={saving}
-                          className="w-full"
-                        >
-                          {saving ? (
-                            <>
-                              <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-3 h-3 mr-2" />
-                              Save Goals
-                            </>
-                          )}
-                        </Button>
-                        
-                        {/* Current Goals Display */}
-                        {goals && (
-                          <div className="text-xs text-text/60 pt-2 border-t border-gray-100">
-                            <div className="flex justify-between mb-1">
-                              <span>Current:</span>
-                              <span>{formatTime(goals.target_time_seconds)} / {goals.target_quizzes} quizzes</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
           <Card className="p-6 lg:col-span-1">
@@ -534,6 +464,222 @@ export default function ParentDashboard() {
                 </div>
               </div>
 
+              {/* Change Grade Section */}
+              {students.length > 0 && (
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Lock className="w-5 h-5 text-navy" />
+                    <h3 className="text-lg font-bold text-navy">Change Grade</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Student Selector for Grade - only show if more than 1 student */}
+                    {students.length > 1 && (
+                      <div>
+                        <Label htmlFor="grade-student-select" className="font-medium mb-2 block">
+                          Select Student
+                        </Label>
+                        <Select
+                          value={selectedStudentId}
+                          onValueChange={(value) => {
+                            setSelectedStudentId(value)
+                          }}
+                        >
+                          <SelectTrigger id="grade-student-select" className="w-full">
+                            <SelectValue placeholder="Select a student" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {students.map((student) => (
+                              <SelectItem key={student.id} value={student.id}>
+                                {student.name} (Grade {student.grade})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    {selectedStudentId && (
+                      <>
+                        <div>
+                          <Label htmlFor="grade-input" className="font-medium">
+                            Grade Level
+                          </Label>
+                          <div className="flex gap-2 mt-2">
+                            <Input
+                              id="grade-input"
+                              type="number"
+                              min={1}
+                              max={12}
+                              value={editingGrades[selectedStudentId] || students.find(s => s.id === selectedStudentId)?.grade || 1}
+                              onChange={(e) => {
+                                const grade = parseInt(e.target.value) || 1
+                                setEditingGrades(prev => ({
+                                  ...prev,
+                                  [selectedStudentId]: Math.max(1, Math.min(12, grade))
+                                }))
+                              }}
+                              className="flex-1"
+                            />
+                            <Button
+                              onClick={() => handleSaveGrade(selectedStudentId)}
+                              disabled={savingGrades[selectedStudentId] || false}
+                              variant="default"
+                            >
+                              {savingGrades[selectedStudentId] ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="w-4 h-4 mr-2" />
+                                  Save
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-text/60 mt-1">Current: Grade {students.find(s => s.id === selectedStudentId)?.grade || 'N/A'}</p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Daily Goals Section */}
+              {students.length > 0 && (
+                <div className="border-t border-gray-200 pt-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Target className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold text-navy">Daily Goals</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Student Selector - only show if more than 1 student */}
+                    {students.length > 1 && (
+                      <div>
+                        <Label htmlFor="student-select" className="font-medium mb-2 block">
+                          Select Student
+                        </Label>
+                        <Select
+                          value={selectedStudentId}
+                          onValueChange={(value) => {
+                            setSelectedStudentId(value)
+                            // Initialize editing goals for selected student if not exists
+                            if (!editingGoals[value] && studentGoals[value]) {
+                              setEditingGoals(prev => ({
+                                ...prev,
+                                [value]: { ...studentGoals[value] }
+                              }))
+                            } else if (!editingGoals[value]) {
+                              setEditingGoals(prev => ({
+                                ...prev,
+                                [value]: { target_time_seconds: 1800, target_quizzes: 2 }
+                              }))
+                            }
+                          }}
+                        >
+                          <SelectTrigger id="student-select" className="w-full">
+                            <SelectValue placeholder="Select a student" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {students.map((student) => (
+                              <SelectItem key={student.id} value={student.id}>
+                                {student.name} (Grade {student.grade})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    {selectedStudentId && (
+                      <>
+                        {/* Target Time */}
+                        <div>
+                          <Label htmlFor="goal-time" className="font-medium">
+                            Target Time (minutes)
+                          </Label>
+                          <Input
+                            id="goal-time"
+                            type="number"
+                            min={10}
+                            max={180}
+                            value={editingGoals[selectedStudentId] ? Math.floor(editingGoals[selectedStudentId].target_time_seconds / 60) : 30}
+                            onChange={(e) => {
+                              const minutes = parseInt(e.target.value) || 30
+                              setEditingGoals(prev => ({
+                                ...prev,
+                                [selectedStudentId]: {
+                                  ...(prev[selectedStudentId] || { target_time_seconds: 1800, target_quizzes: 2 }),
+                                  target_time_seconds: minutes * 60
+                                }
+                              }))
+                            }}
+                            className="mt-2"
+                          />
+                        </div>
+                        
+                        {/* Target Quizzes */}
+                        <div>
+                          <Label htmlFor="goal-quizzes" className="font-medium">
+                            Target Quizzes
+                          </Label>
+                          <Input
+                            id="goal-quizzes"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={editingGoals[selectedStudentId]?.target_quizzes || 2}
+                            onChange={(e) => {
+                              const quizzes = parseInt(e.target.value) || 2
+                              setEditingGoals(prev => ({
+                                ...prev,
+                                [selectedStudentId]: {
+                                  ...(prev[selectedStudentId] || { target_time_seconds: 1800, target_quizzes: 2 }),
+                                  target_quizzes: quizzes
+                                }
+                              }))
+                            }}
+                            className="mt-2"
+                          />
+                        </div>
+                        
+                        {/* Current Goals Display */}
+                        {studentGoals[selectedStudentId] && (
+                          <div className="text-sm text-text/60 p-2 bg-gray-50 rounded">
+                            <div className="flex justify-between">
+                              <span>Current Goals:</span>
+                              <span>{formatTime(studentGoals[selectedStudentId].target_time_seconds)} / {studentGoals[selectedStudentId].target_quizzes} quizzes</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Save Goals Button */}
+                        <Button
+                          onClick={handleSaveGoals}
+                          disabled={savingGoals[selectedStudentId] || false}
+                          className="w-full"
+                        >
+                          {savingGoals[selectedStudentId] ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Save Goals
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <Button onClick={handleSave} className="w-full">
                 Save Settings
               </Button>
@@ -595,6 +741,42 @@ export default function ParentDashboard() {
                 <p className="text-sm text-text/60 text-center py-4">No recent activity</p>
               )}
             </Card>
+
+            {/* Linked Students Section */}
+            {students.length > 0 && (
+              <Card className="p-6">
+                <h3 className="text-lg font-bold text-navy mb-4">Linked Students</h3>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {students.map(student => {
+                    const stats = studentStats[student.id]
+                    return (
+                      <Card key={student.id} className="p-4">
+                        <h4 className="font-bold text-navy mb-2">{student.name}</h4>
+                        <p className="text-sm text-text/60 mb-3">Grade {student.grade}</p>
+                        {stats ? (
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-text/60">Quizzes:</span>
+                              <span className="font-semibold">{stats.total_quizzes}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-text/60">Accuracy:</span>
+                              <span className="font-semibold">{stats.accuracy.toFixed(0)}%</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-text/60">Avg Score:</span>
+                              <span className="font-semibold">{stats.avg_score.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-text/60">No activity yet</p>
+                        )}
+                      </Card>
+                    )
+                  })}
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </main>

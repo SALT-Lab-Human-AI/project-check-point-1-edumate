@@ -1003,3 +1003,61 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
         return {"error": str(e), "success": False}
     finally:
         conn.close()
+
+
+@app.post("/students/parent/{parent_id}/student/{student_id}/grade")
+async def update_student_grade_by_parent(parent_id: str, student_id: str, payload: dict):
+    """Update a student's grade by their parent (with verification)"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        # Verify parent-student relationship
+        cursor.execute("""
+            SELECT id FROM parent_student_links
+            WHERE parent_id = ? AND student_id = ?
+        """, (parent_id, student_id))
+        
+        link = cursor.fetchone()
+        if not link:
+            return {"error": "Student not linked to this parent", "success": False}
+        
+        grade = payload.get("grade")
+        
+        # Validate grade
+        if grade is None:
+            return {"error": "Grade is required", "success": False}
+        
+        if not isinstance(grade, int) or grade < 1 or grade > 12:
+            return {"error": "Grade must be an integer between 1 and 12", "success": False}
+        
+        # Update student grade
+        cursor.execute("""
+            UPDATE users
+            SET grade = ?
+            WHERE id = ? AND role = 'student'
+        """, (grade, student_id))
+        
+        if cursor.rowcount == 0:
+            return {"error": "Student not found or update failed", "success": False}
+        
+        conn.commit()
+        
+        # Return updated student info
+        cursor.execute("SELECT id, email, name, grade FROM users WHERE id = ?", (student_id,))
+        student = cursor.fetchone()
+        
+        return {
+            "success": True,
+            "student": {
+                "id": student["id"],
+                "email": student["email"],
+                "name": student["name"],
+                "grade": student["grade"]
+            }
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
