@@ -90,13 +90,11 @@ After first deployment, the backend will automatically:
 
 ### 3.1 Prepare Environment Variables
 
-1. Create a `.env.local` file in the `application` directory:
-   ```env
-   NEXT_PUBLIC_API_URL=https://your-backend-url.onrender.com
-   NEXT_PUBLIC_USE_MOCK=false
-   ```
+**Your Render Backend URL**: `https://edumate-backend-bk8t.onrender.com`
 
-   Replace `https://your-backend-url.onrender.com` with your actual Render backend URL.
+You'll set these in Vercel's dashboard (not in a file):
+- `NEXT_PUBLIC_API_URL`: `https://edumate-backend-bk8t.onrender.com`
+- `NEXT_PUBLIC_USE_MOCK`: `false`
 
 ### 3.2 Deploy to Vercel
 
@@ -104,8 +102,8 @@ After first deployment, the backend will automatically:
 2. Click **Add New** > **Project**
 3. Import your GitHub repository
 4. Configure:
-   - **Framework Preset**: Next.js
-   - **Root Directory**: `application` (if your repo structure has it)
+   - **Framework Preset**: Next.js (should auto-detect)
+   - **Root Directory**: `application` ⚠️ **IMPORTANT**: Click "Edit" and set this!
    - **Build Command**: `npm run build` (default)
    - **Output Directory**: `.next` (default)
 
@@ -113,8 +111,10 @@ After first deployment, the backend will automatically:
 
 In Vercel project settings, go to **Environment Variables** and add:
 
-- `NEXT_PUBLIC_API_URL`: Your Render backend URL
+- `NEXT_PUBLIC_API_URL`: `https://edumate-backend-bk8t.onrender.com`
 - `NEXT_PUBLIC_USE_MOCK`: `false`
+
+**Important**: Set these for all environments (Production, Preview, Development)
 
 ### 3.4 Deploy
 

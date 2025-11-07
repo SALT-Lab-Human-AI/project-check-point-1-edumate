@@ -1,0 +1,65 @@
+# Vercel ignore file
+# Files and directories to exclude from Vercel deployment
+
+# Backend files (deployed separately on Render)
+backend/
+requirements.txt
+start_backend.py
+start_backend.sh
+Procfile
+render.yaml
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# ChromaDB (now using Supabase Vector)
+chroma_db/
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Test files
+e2e/
+*.spec.ts
+playwright.config.ts
+
+# Scripts
+scripts/
+
+# Data files (large, not needed in frontend)
+data/
+
+# Literature and resources
+../literature/
+../resources/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Node modules (will be installed by Vercel)
+node_modules/
+
+# Build artifacts (Vercel will generate these)
+.next/
+out/
+dist/
+
