@@ -180,15 +180,20 @@ export function MathRenderer({ children, className = "" }: { children: string; c
     .replace(/([a-z])(\d)/g, '$1 $2')
     .replace(/(\d)([a-z])/g, '$1 $2')
 
-  // First, fix specific concatenated text patterns BEFORE checking for LaTeX
-  .replace(/\$(andamathbook|savingstoreacha|whichroundsto|saved\+|Acoupongiveshima|Weneedtofind|satisfyingthebalance|Friendsplitcheck)\$/gi, (match, word) => {
-    // Unwrap and add proper spacing
-    if (word === 'andamathbook') return 'and a math book'
-    if (word === 'savingstoreacha') return 'savings to reach a'
-    if (word === 'whichroundsto') return 'which rounds to'
-    if (word === 'saved+') return 'saved +'
-    return word
+  // Fix concatenated words FIRST (do this FIRST, before any LaTeX processing)
+  .replace(/(\d+\.?\d*)(andamathbook|savingstoreacha|whichroundsto)/gi, (match, num, word) => {
+    if (word.toLowerCase() === 'andamathbook') return `${num} and a math book`
+    if (word.toLowerCase() === 'savingstoreacha') return `${num} savings to reach a`
+    if (word.toLowerCase() === 'whichroundsto') return `${num} which rounds to`
+    return match
   })
+  .replace(/(andamathbook|savingstoreacha|whichroundsto)/gi, (match) => {
+    if (match.toLowerCase() === 'andamathbook') return 'and a math book'
+    if (match.toLowerCase() === 'savingstoreacha') return 'savings to reach a'
+    if (match.toLowerCase() === 'whichroundsto') return 'which rounds to'
+    return match
+  })
+  .replace(/(saved)\+(\d)/g, '$1 + $2')  // Fix "saved+8.00" -> "saved + 8.00"
 
   // Detect and unwrap plain text that's incorrectly wrapped in $...$ delimiters
   // If a $...$ block contains mostly plain text (not LaTeX commands), unwrap it
@@ -221,14 +226,24 @@ export function MathRenderer({ children, className = "" }: { children: string; c
     return match
   })
 
-  // Fix concatenated words even if not wrapped in $ (as a fallback)
-  .replace(/(andamathbook|savingstoreacha|whichroundsto)/gi, (match) => {
-    if (match.toLowerCase() === 'andamathbook') return 'and a math book'
-    if (match.toLowerCase() === 'savingstoreacha') return 'savings to reach a'
-    if (match.toLowerCase() === 'whichroundsto') return 'which rounds to'
-    return match
+  // Fix concatenated words that appear after numbers (like "12.00savingstoreacha")
+  .replace(/\$(\d+\.?\d*)(andamathbook|savingstoreacha|whichroundsto)(\s+\d+\.?\d*)?\$/gi, (match, num, word, num2) => {
+    let fixed = num
+    if (word.toLowerCase() === 'andamathbook') fixed += ' and a math book'
+    else if (word.toLowerCase() === 'savingstoreacha') fixed += ' savings to reach a'
+    else if (word.toLowerCase() === 'whichroundsto') fixed += ' which rounds to'
+    if (num2) fixed += num2
+    return fixed  // Return without $ delimiters
   })
-  .replace(/(saved)\+(\d)/g, '$1 + $2')  // Fix "saved+8.00" -> "saved + 8.00"
+  // More aggressive: fix any $ block that contains these concatenated words
+  .replace(/\$([^$]*?(?:andamathbook|savingstoreacha|whichroundsto)[^$]*?)\$/gi, (match, content) => {
+    // Replace the concatenated words and unwrap
+    return content
+      .replace(/andamathbook/gi, 'and a math book')
+      .replace(/savingstoreacha/gi, 'savings to reach a')
+      .replace(/whichroundsto/gi, 'which rounds to')
+      .replace(/(\d+\.?\d*)([a-zA-Z]+)/g, '$1 $2')  // Add space between number and word
+  })
 
   // Split by $$ for display math and $ for inline math
   // Use non-greedy matching and handle multi-line content
