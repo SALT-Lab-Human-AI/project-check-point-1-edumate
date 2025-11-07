@@ -1,11 +1,30 @@
+# Web Framework
 fastapi
-uvicorn
-python-dotenv
-requests
-chromadb
-sentence-transformers
-groq
-torch
-tqdm
-pydantic
+uvicorn[standard]
 python-multipart
+
+# Data Validation
+pydantic
+
+# Environment Variables
+python-dotenv
+
+# Database
+psycopg2-binary
+
+# ML/AI
+groq
+sentence-transformers
+torch
+numpy
+
+# Vector Database (for setup scripts)
+chromadb
+
+# Data Processing
+tqdm
+datasets
+scikit-learn
+
+# Utilities
+requests
