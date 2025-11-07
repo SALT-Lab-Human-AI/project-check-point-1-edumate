@@ -39,7 +39,7 @@ EduMate is a K-12 AI-powered tutoring platform that combines:
 
 ### Backend Components
 
-![Backend Components](Backend%20Components.png)
+<img src="Backend%20Components.png" alt="Backend Components" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
 
 ---
 
@@ -47,11 +47,11 @@ EduMate is a K-12 AI-powered tutoring platform that combines:
 
 ### Tutor Question Flow (S1 & S2)
 
-![Tutor Question Flow (S1 & S2)](Tutor%20Question%20Flow%20(S1%20%26%20S2).png)
+<img src="Tutor%20Question%20Flow%20(S1%20%26%20S2).png" alt="Tutor Question Flow (S1 & S2)" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
 
 ### Quiz Generation Flow (S3)
 
-![Quiz Generation Flow (S3)](Quiz%20Generation%20Flow%20(S3).png)
+<img src="Quiz%20Generation%20Flow%20(S3).png" alt="Quiz Generation Flow (S3)" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
 
 ### Authentication & Session Flow
 
@@ -101,7 +101,7 @@ EduMate is a K-12 AI-powered tutoring platform that combines:
 
 ### Core Tables
 
-![Core Tables](Core%20Tables.png)
+<img src="Core%20Tables.png" alt="Core Tables" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" />
 
 ### Vector Store Schema
 
