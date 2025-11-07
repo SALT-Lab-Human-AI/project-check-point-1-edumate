@@ -48,6 +48,8 @@ export default function ParentDashboard() {
   const [linking, setLinking] = useState(false)
   const [studentEmail, setStudentEmail] = useState("")
   const [showLinkForm, setShowLinkForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -243,9 +245,52 @@ export default function ParentDashboard() {
     setLocalControls(parentControls)
   }, [parentControls])
 
-  const handleSave = () => {
-    updateParentControls(localControls)
-    alert("Settings saved successfully!")
+  const handleSave = async () => {
+    if (!user || user.role !== "parent") return
+    
+    setSaving(true)
+    setSaveSuccess(false)
+    
+    try {
+      // Save parent controls
+      updateParentControls(localControls)
+      
+      // Save grade if changed
+      if (selectedStudentId) {
+        const currentStudent = students.find(s => s.id === selectedStudentId)
+        const newGrade = editingGrades[selectedStudentId]
+        if (currentStudent && newGrade !== undefined && currentStudent.grade !== newGrade) {
+          await updateStudentGradeByParent(user.id, selectedStudentId, newGrade)
+          // Update the student in the students array
+          setStudents(prev => prev.map(s => 
+            s.id === selectedStudentId ? { ...s, grade: newGrade } : s
+          ))
+        }
+      }
+      
+      // Save goals if changed
+      if (selectedStudentId) {
+        const goals = editingGoals[selectedStudentId]
+        if (goals) {
+          await setStudentGoalsByParent(user.id, selectedStudentId, {
+            target_time_seconds: goals.target_time_seconds,
+            target_quizzes: goals.target_quizzes
+          })
+          setStudentGoals(prev => ({ ...prev, [selectedStudentId]: goals }))
+        }
+      }
+      
+      setSaveSuccess(true)
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false)
+      }, 3000)
+    } catch (err) {
+      console.error("Failed to save settings:", err)
+      alert("Failed to save some settings. Please try again.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!user || user.role !== "parent") return null
@@ -505,40 +550,21 @@ export default function ParentDashboard() {
                           <Label htmlFor="grade-input" className="font-medium">
                             Grade Level
                           </Label>
-                          <div className="flex gap-2 mt-2">
-                            <Input
-                              id="grade-input"
-                              type="number"
-                              min={1}
-                              max={12}
-                              value={editingGrades[selectedStudentId] || students.find(s => s.id === selectedStudentId)?.grade || 1}
-                              onChange={(e) => {
-                                const grade = parseInt(e.target.value) || 1
-                                setEditingGrades(prev => ({
-                                  ...prev,
-                                  [selectedStudentId]: Math.max(1, Math.min(12, grade))
-                                }))
-                              }}
-                              className="flex-1"
-                            />
-                            <Button
-                              onClick={() => handleSaveGrade(selectedStudentId)}
-                              disabled={savingGrades[selectedStudentId] || false}
-                              variant="default"
-                            >
-                              {savingGrades[selectedStudentId] ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Saving...
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="w-4 h-4 mr-2" />
-                                  Save
-                                </>
-                              )}
-                            </Button>
-                          </div>
+                          <Input
+                            id="grade-input"
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={editingGrades[selectedStudentId] || students.find(s => s.id === selectedStudentId)?.grade || 1}
+                            onChange={(e) => {
+                              const grade = parseInt(e.target.value) || 1
+                              setEditingGrades(prev => ({
+                                ...prev,
+                                [selectedStudentId]: Math.max(1, Math.min(12, grade))
+                              }))
+                            }}
+                            className="mt-2"
+                          />
                           <p className="text-xs text-text/60 mt-1">Current: Grade {students.find(s => s.id === selectedStudentId)?.grade || 'N/A'}</p>
                         </div>
                       </>
@@ -655,34 +681,28 @@ export default function ParentDashboard() {
                             </div>
                           </div>
                         )}
-                        
-                        {/* Save Goals Button */}
-                        <Button
-                          onClick={handleSaveGoals}
-                          disabled={savingGoals[selectedStudentId] || false}
-                          className="w-full"
-                        >
-                          {savingGoals[selectedStudentId] ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4 mr-2" />
-                              Save Goals
-                            </>
-                          )}
-                        </Button>
                       </>
                     )}
                   </div>
                 </div>
               )}
 
-              <Button onClick={handleSave} className="w-full">
-                Save Settings
+              <Button onClick={handleSave} disabled={saving} className="w-full">
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Settings"
+                )}
               </Button>
+              
+              {saveSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                  Settings saved successfully!
+                </div>
+              )}
             </div>
           </Card>
 

@@ -49,11 +49,17 @@ interface QuizResults {
 }
 
 export default function S3Page() {
-  const { user } = useApp()
+  const { user, parentControls } = useApp()
   const grade = user?.grade || 8 // Use grade from user profile (set by parent)
   const [topic, setTopic] = useState("")
   const [questionCount, setQuestionCount] = useState(5)
-  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium")
+  // Use parent's locked difficulty if set, otherwise allow student to choose
+  const lockedDifficulty = parentControls?.lockedDifficulty
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">(
+    lockedDifficulty && lockedDifficulty !== null 
+      ? (lockedDifficulty as "easy" | "medium" | "hard")
+      : "medium"
+  )
   const [availableTopics, setAvailableTopics] = useState<string[]>([])
   
   const [view, setView] = useState<"config" | "quiz" | "results">("config")
@@ -94,6 +100,18 @@ export default function S3Page() {
     }
   }, [quizData, currentQuestion])
 
+  // Update difficulty when parent controls change - always use locked difficulty if set
+  useEffect(() => {
+    if (lockedDifficulty && lockedDifficulty !== null) {
+      setDifficulty(lockedDifficulty as "easy" | "medium" | "hard")
+    }
+  }, [lockedDifficulty])
+
+  // Get the actual difficulty to use - prefer locked difficulty if set
+  const actualDifficulty = (lockedDifficulty && lockedDifficulty !== null) 
+    ? (lockedDifficulty as "easy" | "medium" | "hard")
+    : difficulty
+
   const handleGenerateQuiz = async () => {
     if (!topic) {
       setError("Please select a topic")
@@ -108,7 +126,7 @@ export default function S3Page() {
         grade,
         topic,
         count: questionCount,
-        difficulty
+        difficulty: actualDifficulty
       })
       
       setQuizData(quiz)
@@ -495,22 +513,25 @@ export default function S3Page() {
                 />
               </div>
 
-              <div>
-                <Label>Difficulty</Label>
-                <div className="flex gap-2 mt-2">
-                  {(["easy", "medium", "hard"] as const).map((d) => (
-                    <Button 
-                      key={d} 
-                      variant={d === difficulty ? "default" : "outline"} 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => setDifficulty(d)}
-                    >
-                      {d.charAt(0).toUpperCase() + d.slice(1)}
-                    </Button>
-                  ))}
+              {/* Only show difficulty selection if parent hasn't locked it */}
+              {!lockedDifficulty && (
+                <div>
+                  <Label>Difficulty</Label>
+                  <div className="flex gap-2 mt-2">
+                    {(["easy", "medium", "hard"] as const).map((d) => (
+                      <Button 
+                        key={d} 
+                        variant={d === difficulty ? "default" : "outline"} 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => setDifficulty(d)}
+                      >
+                        {d.charAt(0).toUpperCase() + d.slice(1)}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <Button 
                 onClick={handleGenerateQuiz} 
