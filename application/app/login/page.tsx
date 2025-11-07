@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+// Force dynamic rendering to prevent static generation issues with useSearchParams
+export const dynamic = 'force-dynamic'
+
 function LoginForm() {
   const [role, setRole] = useState<"student" | "parent">("student")
   const [email, setEmail] = useState("")
