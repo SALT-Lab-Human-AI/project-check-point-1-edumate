@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2 } from "lucide-react"
 import { getTopics, generateQuestion, solveS1 } from "@/lib/hybrid-service"
 import { StructuredSolutionDisplay } from "@/components/structured-solution-display"
+import { useTimeTracking } from "@/lib/use-time-tracking"
 
 interface SolutionPhase {
   title: string
@@ -32,6 +33,9 @@ export default function S1Page() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGeneratingQuestion, setIsGeneratingQuestion] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Track time spent on this page
+  useTimeTracking('s1')
 
   // Load topics based on grade level
   useEffect(() => {

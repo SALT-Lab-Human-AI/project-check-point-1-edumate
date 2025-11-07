@@ -14,6 +14,7 @@ import { getTopics, generateQuiz, gradeQuiz } from "@/lib/hybrid-service"
 import { trackQuiz } from "@/lib/api-service"
 import { useApp } from "@/store/app-context"
 import { MathRenderer } from "@/components/math-renderer"
+import { useTimeTracking } from "@/lib/use-time-tracking"
 
 interface QuizQuestion {
   id: string
@@ -63,6 +64,9 @@ export default function S3Page() {
   const [quizResults, setQuizResults] = useState<QuizResults | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Track time spent on this page
+  useTimeTracking('s3')
 
   // Load topics based on grade level
   useEffect(() => {

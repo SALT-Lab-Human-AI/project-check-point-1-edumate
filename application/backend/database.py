@@ -96,6 +96,46 @@ def init_db():
         )
     """)
     
+    # Session time tracking table - tracks individual sessions
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS session_time_tracking (
+            id TEXT PRIMARY KEY,
+            student_id TEXT NOT NULL,
+            module TEXT NOT NULL CHECK(module IN ('s1', 's2', 's3')),
+            time_spent_seconds INTEGER NOT NULL,
+            session_date DATE NOT NULL,
+            session_started_at TIMESTAMP,
+            session_ended_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (student_id) REFERENCES users(id)
+        )
+    """)
+    
+    # Add new columns to existing table if they don't exist (migration)
+    try:
+        cursor.execute("ALTER TABLE session_time_tracking ADD COLUMN session_started_at TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
+    try:
+        cursor.execute("ALTER TABLE session_time_tracking ADD COLUMN session_ended_at TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    
+    # Total time tracking table - tracks cumulative daily totals per module
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS total_time_tracking (
+            id TEXT PRIMARY KEY,
+            student_id TEXT NOT NULL,
+            module TEXT NOT NULL CHECK(module IN ('s1', 's2', 's3')),
+            total_time_seconds INTEGER NOT NULL DEFAULT 0,
+            session_date DATE NOT NULL,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (student_id) REFERENCES users(id),
+            UNIQUE(student_id, module, session_date)
+        )
+    """)
+    
     conn.commit()
     conn.close()
     

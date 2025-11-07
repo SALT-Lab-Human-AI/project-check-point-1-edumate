@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from backend.rag_groq_bot import ask_groq            # RAG tutor answer
 from backend.quiz_gen import generate_quiz_items     # Quiz generator (new module)
 from backend.database import init_db, get_db, hash_password, verify_password, generate_id
+from datetime import datetime, date
 
 
 app = FastAPI(title="K-12 RAG Tutor API")
@@ -526,6 +527,98 @@ async def track_quiz(payload: QuizTrackingPayload):
         conn.close()
 
 
+@app.post("/time/track")
+async def track_time(payload: dict):
+    """Record time spent in a module - either as a session or cumulative total"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    try:
+        student_id = payload.get("student_id")
+        module = payload.get("module")
+        time_spent_seconds = payload.get("time_spent_seconds", 0)
+        is_session = payload.get("is_session", False)
+        update_total_only = payload.get("update_total_only", False)
+        session_started_at = payload.get("session_started_at")
+        session_ended_at = payload.get("session_ended_at")
+        
+        if not student_id or not module or time_spent_seconds <= 0:
+            return {"error": "Invalid payload", "success": False}
+        
+        if module not in ["s1", "s2", "s3"]:
+            return {"error": "Invalid module. Only s1, s2, s3 are allowed", "success": False}
+        
+        # Get today's date
+        today = date.today().isoformat()
+        
+        if is_session and session_started_at and session_ended_at:
+            # Record individual session
+            session_id = generate_id()
+            cursor.execute("""
+                INSERT INTO session_time_tracking 
+                (id, student_id, module, time_spent_seconds, session_date, session_started_at, session_ended_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (session_id, student_id, module, time_spent_seconds, today, session_started_at, session_ended_at))
+            
+            # Also update cumulative total
+            cursor.execute("""
+                SELECT id, total_time_seconds 
+                FROM total_time_tracking 
+                WHERE student_id = ? AND module = ? AND session_date = ?
+            """, (student_id, module, today))
+            
+            total_record = cursor.fetchone()
+            if total_record:
+                new_total = total_record["total_time_seconds"] + time_spent_seconds
+                cursor.execute("""
+                    UPDATE total_time_tracking 
+                    SET total_time_seconds = ?, last_updated = datetime('now')
+                    WHERE id = ?
+                """, (new_total, total_record["id"]))
+            else:
+                total_id = generate_id()
+                cursor.execute("""
+                    INSERT INTO total_time_tracking 
+                    (id, student_id, module, total_time_seconds, session_date)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (total_id, student_id, module, time_spent_seconds, today))
+        
+        elif update_total_only:
+            # Only update cumulative total (periodic updates during session)
+            cursor.execute("""
+                SELECT id, total_time_seconds 
+                FROM total_time_tracking 
+                WHERE student_id = ? AND module = ? AND session_date = ?
+            """, (student_id, module, today))
+            
+            total_record = cursor.fetchone()
+            if total_record:
+                new_total = total_record["total_time_seconds"] + time_spent_seconds
+                cursor.execute("""
+                    UPDATE total_time_tracking 
+                    SET total_time_seconds = ?, last_updated = datetime('now')
+                    WHERE id = ?
+                """, (new_total, total_record["id"]))
+            else:
+                total_id = generate_id()
+                cursor.execute("""
+                    INSERT INTO total_time_tracking 
+                    (id, student_id, module, total_time_seconds, session_date)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (total_id, student_id, module, time_spent_seconds, today))
+        else:
+            return {"error": "Invalid request: must specify is_session or update_total_only", "success": False}
+        
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        print(f"[Time Track Error] {e}")
+        return {"error": str(e), "success": False}
+    finally:
+        conn.close()
+
+
 @app.get("/stats/student/{student_id}")
 async def get_student_stats(student_id: str):
     """Get statistics for a student"""
@@ -556,13 +649,137 @@ async def get_student_stats(student_id: str):
         
         # Recent quiz attempts
         cursor.execute("""
-            SELECT topic, score_percentage, completed_at, total_questions, correct_answers
+            SELECT quiz_topic as topic, score_percentage, completed_at, total_questions, correct_answers
             FROM quiz_attempts
             WHERE student_id = ?
             ORDER BY completed_at DESC
             LIMIT 10
         """, (student_id,))
         recent_quizzes = [dict(row) for row in cursor.fetchall()]
+        
+        # Get recent session activities (individual sessions, not cumulative)
+        # Get the most recent sessions across all modules (we'll combine with quizzes and limit to 5 total)
+        # Use COALESCE to handle old records that might not have session_ended_at
+        cursor.execute("""
+            SELECT module, time_spent_seconds, session_date, 
+                   COALESCE(session_ended_at, created_at) as session_ended_at, 
+                   created_at
+            FROM session_time_tracking
+            WHERE student_id = ?
+            ORDER BY COALESCE(session_ended_at, created_at) DESC
+            LIMIT 20
+        """, (student_id,))
+        session_tracking = [dict(row) for row in cursor.fetchall()]
+        
+        # Format recent activities combining quizzes and session tracking
+        recent_activities = []
+        
+        # Add quiz activities
+        for quiz in recent_quizzes:
+            recent_activities.append({
+                "type": "quiz",
+                "module": "S3",
+                "title": f"{quiz['topic']} Quiz",
+                "score": f"{quiz['correct_answers']}/{quiz['total_questions']} ({quiz['score_percentage']:.0f}%)",
+                "date": quiz['completed_at'],
+                "time_spent": None
+            })
+        
+        # Add session tracking activities (individual sessions only)
+        module_names = {
+            "s1": "Structured Problem-Solving Practice",
+            "s2": "AI-Powered Solution Feedback",
+            "s3": "Mathematical Quiz Generation"
+        }
+        
+        print(f"[Stats API] Processing {len(session_tracking)} sessions for student {student_id}")
+        if len(session_tracking) == 0:
+            print(f"[Stats API] WARNING: No sessions found for student {student_id}")
+        
+        for track in session_tracking:
+            print(f"[Stats API] Raw session data: {track}")
+            # Skip portal entries (shouldn't exist but just in case)
+            module = track.get('module')
+            if not module or module == 'portal':
+                continue
+                
+            minutes = track['time_spent_seconds'] // 60
+            seconds = track['time_spent_seconds'] % 60
+            time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
+            
+            # Use session_ended_at as the activity date (when session completed)
+            # session_ended_at comes from COALESCE, so it should always have a value
+            activity_date = str(track.get('session_ended_at') or track.get('created_at') or '')
+            
+            if not activity_date or activity_date == 'None' or activity_date == '':
+                print(f"[Stats API] Skipping session with no date: {track}")
+                continue
+            
+            activity_entry = {
+                "type": "session",
+                "module": module.upper(),
+                "title": module_names.get(module, module),
+                "score": None,
+                "date": activity_date,
+                "time_spent": time_str,
+                "time_spent_seconds": track['time_spent_seconds']
+            }
+            
+            print(f"[Stats API] Adding session activity: {activity_entry}")
+            recent_activities.append(activity_entry)
+        
+        # Sort by date (most recent first) - handle both string and datetime objects
+        def get_sort_key(activity):
+            date_val = activity.get('date')
+            if isinstance(date_val, str):
+                try:
+                    from datetime import datetime
+                    # Handle ISO format with Z: "2025-11-07T00:11:55.640Z"
+                    if 'T' in date_val and 'Z' in date_val:
+                        # Remove milliseconds and Z, add timezone
+                        date_val_clean = date_val.split('.')[0].replace('Z', '+00:00')
+                        parsed = datetime.fromisoformat(date_val_clean)
+                        return parsed
+                    # Handle SQLite datetime format: "2025-11-06 23:24:19"
+                    elif ' ' in date_val and 'T' not in date_val:
+                        parsed = datetime.strptime(date_val, '%Y-%m-%d %H:%M:%S')
+                        return parsed
+                    else:
+                        # Try generic ISO format
+                        parsed = datetime.fromisoformat(date_val.replace('Z', '+00:00'))
+                        return parsed
+                except Exception as e:
+                    print(f"[Stats API] Error parsing date '{date_val}': {e}")
+                    # Return a far past date so it sorts to the end
+                    return datetime(1970, 1, 1)
+            return date_val if date_val else datetime(1970, 1, 1)
+        
+        try:
+            recent_activities.sort(key=get_sort_key, reverse=True)
+        except Exception as e:
+            print(f"[Stats API] Error sorting: {e}")
+            # Keep original order if sorting fails
+            pass
+        
+        recent_activities = recent_activities[:5]  # Limit to top 5 most recent (latest first)
+        
+        # Debug output
+        print(f"[Stats API] Returning {len(recent_activities)} activities:")
+        for i, act in enumerate(recent_activities):
+            print(f"  {i+1}. {act.get('type')} - {act.get('title')} - {act.get('time_spent')} - {act.get('date')}")
+        
+        # Ensure we always return recent_activities, even if empty
+        if not recent_activities and recent_quizzes:
+            # If no time tracking but we have quizzes, return quiz activities
+            for quiz in recent_quizzes[:5]:
+                recent_activities.append({
+                    "type": "quiz",
+                    "module": "S3",
+                    "title": f"{quiz['topic']} Quiz",
+                    "score": f"{quiz['correct_answers']}/{quiz['total_questions']} ({quiz['score_percentage']:.0f}%)",
+                    "date": quiz['completed_at'],
+                    "time_spent": None
+                })
         
         return {
             "success": True,
@@ -574,7 +791,8 @@ async def get_student_stats(student_id: str):
                 "accuracy": round((quiz_stats.get("total_correct", 0) or 0) / max(quiz_stats.get("total_questions", 1) or 1, 1) * 100, 2),
                 "s1_sessions": s1_count,
                 "s2_sessions": s2_count,
-                "recent_quizzes": recent_quizzes
+                "recent_quizzes": recent_quizzes,
+                "recent_activities": recent_activities
             }
         }
     except Exception as e:

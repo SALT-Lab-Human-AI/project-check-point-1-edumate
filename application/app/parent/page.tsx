@@ -28,6 +28,7 @@ interface StudentStats {
   s1_sessions: number
   s2_sessions: number
   recent_quizzes: any[]
+  recent_activities?: any[]
 }
 
 export default function ParentDashboard() {
@@ -158,15 +159,35 @@ export default function ParentDashboard() {
   // Get recent activity from all students
   const recentActivity = students.flatMap(student => {
     const stats = studentStats[student.id]
-    if (!stats || !stats.recent_quizzes) return []
+    if (!stats) return []
     
-    return stats.recent_quizzes.slice(0, 3).map(quiz => ({
-      student: student.name,
-      date: new Date(quiz.completed_at).toLocaleDateString(),
-      activity: `Completed ${quiz.topic} Quiz`,
+    // Use recent_activities if available, otherwise fall back to recent_quizzes
+    const activities = stats.recent_activities || stats.recent_quizzes?.map((quiz: any) => ({
+      type: 'quiz',
+      module: 'S3',
+      title: `${quiz.topic} Quiz`,
       score: `${quiz.correct_answers}/${quiz.total_questions} (${quiz.score_percentage.toFixed(0)}%)`,
-      module: "S3"
-    }))
+      date: quiz.completed_at,
+      time_spent: null
+    })) || []
+    
+    return activities.slice(0, 3).map((activity: any) => {
+      const moduleNames: Record<string, string> = {
+        'S1': 'S1',
+        'S2': 'S2',
+        'S3': 'S3',
+        'PORTAL': 'Portal'
+      }
+      
+      return {
+        student: student.name,
+        date: new Date(activity.date).toLocaleDateString(),
+        activity: activity.title || activity.activity || `Activity in ${moduleNames[activity.module] || activity.module}`,
+        score: activity.score || null,
+        module: moduleNames[activity.module] || activity.module,
+        timeSpent: activity.time_spent || null
+      }
+    })
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10)
 
   return (
@@ -410,9 +431,19 @@ export default function ParentDashboard() {
                           <span className="text-xs px-2 py-0.5 bg-sky/20 text-navy rounded-full">{activity.module}</span>
                           <span className="text-xs text-text/60">({activity.student})</span>
                         </div>
-                        <p className="text-xs text-text/60">{activity.date}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-text/60">{activity.date}</p>
+                          {activity.timeSpent && (
+                            <span className="text-xs text-primary flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {activity.timeSpent}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm font-semibold text-leaf">{activity.score}</span>
+                      {activity.score && (
+                        <span className="text-sm font-semibold text-leaf">{activity.score}</span>
+                      )}
                     </div>
                   ))}
                 </div>

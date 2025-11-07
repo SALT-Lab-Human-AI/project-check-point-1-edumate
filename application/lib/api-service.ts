@@ -183,8 +183,25 @@ export async function getStudentStats(studentId: string): Promise<{
     s1_sessions: number
     s2_sessions: number
     recent_quizzes: any[]
+    recent_activities: any[]
   }
   error?: string
 }> {
   return apiCall(`/stats/student/${studentId}`)
+}
+
+// Record time spent in a module
+export async function recordTimeSpent(payload: {
+  student_id: string
+  module: 's1' | 's2' | 's3'
+  time_spent_seconds: number
+  update_total_only?: boolean
+  is_session?: boolean
+  session_started_at?: string
+  session_ended_at?: string
+}): Promise<{ success: boolean; error?: string }> {
+  return apiCall('/time/track', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }

@@ -11,6 +11,7 @@ import { Upload, XCircle, Download, Loader2, CheckCircle2, AlertTriangle } from 
 import { submitS2 } from "@/lib/hybrid-service"
 import { MathRenderer } from "@/components/math-renderer"
 import { FeedbackDisplay } from "@/components/feedback-display"
+import { useTimeTracking } from "@/lib/use-time-tracking"
 
 interface FeedbackData {
   feedback: string
@@ -35,6 +36,9 @@ export default function S2Page() {
   const [feedbackData, setFeedbackData] = useState<FeedbackData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Track time spent on this page
+  useTimeTracking('s2')
 
   const handleSubmitSolution = async () => {
     if (!question.trim() || !solution.trim()) {
