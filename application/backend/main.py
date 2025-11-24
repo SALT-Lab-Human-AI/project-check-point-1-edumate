@@ -10,8 +10,10 @@ from pydantic import BaseModel
 from backend.rag_groq_bot import ask_groq, init_vector_table            # RAG tutor answer
 from backend.quiz_gen import generate_quiz_items     # Quiz generator (new module)
 from backend.database import init_db, get_db, get_cursor, return_db, hash_password, verify_password, generate_id
-from backend.memory_tracker import track_memory_feature, get_memory_metrics, get_memory_summary, clear_metrics
+from backend.memory_tracker import track_memory_feature, get_memory_metrics, get_memory_summary, clear_metrics, get_memory_usage
 from datetime import datetime, date
+import atexit
+import signal
 
 
 app = FastAPI(title="K-12 RAG Tutor API")
@@ -35,6 +37,36 @@ async def startup_event():
     except Exception as e:
         print(f"Warning: Could not initialize vector table on startup: {e}")
         print("Will retry on first vector operation")
+    
+    # Log initial memory usage
+    initial_memory = get_memory_usage()
+    print("\n" + "="*80)
+    print("[MEMORY] Application Startup - Initial Memory Usage")
+    print("="*80)
+    print(f"Process Memory: {initial_memory['process_memory_mb']:.2f} MB ({initial_memory['process_memory_percent']:.2f}% of system)")
+    print(f"System Memory: {initial_memory['system_memory_percent']:.2f}% used")
+    print(f"System Total: {initial_memory['system_memory_total_mb']:.2f} MB")
+    print(f"System Available: {initial_memory['system_memory_available_mb']:.2f} MB")
+    print("="*80 + "\n")
+    
+    # Register shutdown handler to log final memory
+    def log_shutdown_memory():
+        final_memory = get_memory_usage()
+        print("\n" + "="*80)
+        print("[MEMORY] Application Shutdown - Final Memory Usage")
+        print("="*80)
+        print(f"Process Memory: {final_memory['process_memory_mb']:.2f} MB ({final_memory['process_memory_percent']:.2f}% of system)")
+        print(f"System Memory: {final_memory['system_memory_percent']:.2f}% used")
+        print("="*80 + "\n")
+    
+    atexit.register(log_shutdown_memory)
+    
+    # Also handle SIGTERM (common in Render)
+    def signal_handler(signum, frame):
+        log_shutdown_memory()
+        exit(0)
+    
+    signal.signal(signal.SIGTERM, signal_handler)
 
 # === CORS (allow your React dev server; tighten in prod) ===
 app.add_middleware(
@@ -1258,6 +1290,7 @@ async def get_memory_summary_endpoint():
         summary = get_memory_summary()
         return {"success": True, "summary": summary}
     except Exception as e:
+        print(f"[MEMORY-ERROR] Failed to get memory summary: {e}")
         return {"success": False, "error": str(e)}
 
 

@@ -97,7 +97,7 @@ def track_memory_feature(feature_name: str):
                     "feature": feature_name,
                     "timestamp": datetime.now().isoformat(),
                     "memory_before_mb": memory_before["process_memory_mb"],
-                    "memory_after_mb": memory_after["process_memory_percent"],
+                    "memory_after_mb": memory_after["process_memory_mb"],
                     "memory_delta_mb": round(memory_after["process_memory_mb"] - memory_before["process_memory_mb"], 2),
                     "execution_time_seconds": round(end_time - start_time, 3),
                     "status": "error",
@@ -105,6 +105,12 @@ def track_memory_feature(feature_name: str):
                 }
                 
                 _record_metric(feature_name, metric)
+                
+                # Log error details for Render logs
+                print(f"[MEMORY-ERROR] {feature_name} failed")
+                print(f"  └─ Error: {str(e)}")
+                print(f"  └─ Process Memory: {memory_before['process_memory_mb']:.2f}MB → {memory_after['process_memory_mb']:.2f}MB")
+                print(f"  └─ Execution Time: {end_time - start_time:.3f}s")
                 raise
         
         @wraps(func)
@@ -159,6 +165,12 @@ def track_memory_feature(feature_name: str):
                 }
                 
                 _record_metric(feature_name, metric)
+                
+                # Log error details for Render logs
+                print(f"[MEMORY-ERROR] {feature_name} failed")
+                print(f"  └─ Error: {str(e)}")
+                print(f"  └─ Process Memory: {memory_before['process_memory_mb']:.2f}MB → {memory_after['process_memory_mb']:.2f}MB")
+                print(f"  └─ Execution Time: {end_time - start_time:.3f}s")
                 raise
         
         # Return appropriate wrapper based on function type
@@ -181,6 +193,14 @@ def _record_metric(feature_name: str, metric: Dict[str, Any]):
         # Keep only last 1000 metrics per feature to prevent memory bloat
         if len(_memory_metrics[feature_name]) > 1000:
             _memory_metrics[feature_name] = _memory_metrics[feature_name][-1000:]
+        
+        # Log to console for Render logs
+        status_emoji = "✅" if metric.get("status") == "success" else "❌"
+        print(f"[MEMORY] {status_emoji} {feature_name} | "
+              f"Memory: {metric.get('memory_before_mb', 0):.2f}MB → {metric.get('memory_after_mb', 0):.2f}MB "
+              f"(Δ{metric.get('memory_delta_mb', 0):+.2f}MB) | "
+              f"Time: {metric.get('execution_time_seconds', 0):.3f}s | "
+              f"System: {metric.get('system_memory_percent', 0):.1f}%")
 
 
 def get_memory_metrics(feature_name: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
@@ -255,6 +275,27 @@ def get_memory_summary() -> Dict[str, Any]:
             "error_count": sum(1 for m in metrics if m.get("status") == "error"),
             "latest_metric": feature_data.get("latest")
         }
+    
+    # Log summary to Render logs
+    print("\n" + "="*80)
+    print("[MEMORY-SUMMARY] Memory Usage Summary")
+    print("="*80)
+    print(f"Current Process Memory: {current['process_memory_mb']:.2f} MB ({current['process_memory_percent']:.2f}% of system)")
+    print(f"System Memory: {current['system_memory_percent']:.2f}% used ({current['system_memory_available_mb']:.2f} MB available)")
+    print(f"Total Features Tracked: {len(summary['features'])}")
+    print("-"*80)
+    
+    for feature_name, stats in summary["features"].items():
+        print(f"\n📊 {feature_name}:")
+        print(f"   Total Calls: {stats['total_calls']}")
+        print(f"   Avg Memory Delta: {stats['avg_memory_delta_mb']:+.2f} MB")
+        print(f"   Max Memory Delta: {stats['max_memory_delta_mb']:+.2f} MB")
+        print(f"   Avg Execution Time: {stats['avg_execution_time_seconds']:.3f}s")
+        print(f"   Max Execution Time: {stats['max_execution_time_seconds']:.3f}s")
+        if stats['error_count'] > 0:
+            print(f"   ⚠️  Errors: {stats['error_count']}")
+    
+    print("="*80 + "\n")
     
     return summary
 
