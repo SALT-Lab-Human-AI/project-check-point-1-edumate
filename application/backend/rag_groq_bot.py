@@ -96,7 +96,21 @@ def init_vector_table():
 
 # === Populate Vector Table ===
 def populate_vector_table():
-    """Populate the vector table with embeddings from the dataset"""
+    """
+    Populate the vector table with embeddings from the dataset (memory-efficient streaming).
+    Uses streaming to avoid loading entire dataset into memory.
+    """
+    # Check memory before starting (if memory_tracker is available)
+    try:
+        from backend.memory_tracker import get_memory_usage
+        memory = get_memory_usage()
+        if memory['process_memory_mb'] > 400:
+            print(f"[MEMORY-WARNING] Memory usage too high ({memory['process_memory_mb']:.2f}MB). Skipping population.")
+            print("Please populate vector table manually when memory is available or use a separate script.")
+            return
+    except ImportError:
+        pass  # Memory tracker not available, continue anyway
+    
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
     
@@ -109,42 +123,94 @@ def populate_vector_table():
             print(f"Vector table '{COLLECTION_NAME}' already has {count} documents. Skipping population.")
             return
         
-        # Load dataset
+        # Check if dataset exists
         if not os.path.exists(DATASET_PATH):
             print(f"Dataset file not found: {DATASET_PATH}")
             return
         
+        print(f"Populating vector table '{COLLECTION_NAME}' (streaming mode - memory efficient)...")
+        
+        # Stream dataset line by line instead of loading all at once
+        batch_size = 50  # Process in batches to balance memory and performance
+        batch = []
+        total_processed = 0
+        
+        # First pass: count total lines for progress tracking
         with open(DATASET_PATH, "r", encoding="utf-8") as f:
-            data = [json.loads(line) for line in f]
+            total_lines = sum(1 for _ in f)
         
-        print(f"Total QA pairs found: {len(data)}")
-        print(f"Populating vector table '{COLLECTION_NAME}'...")
+        print(f"Total QA pairs to process: {total_lines}")
         
-        # Insert embeddings
-        for entry in tqdm(data, desc="Adding QA pairs to Supabase Vector"):
-            text = entry.get("question", "") + " " + entry.get("answer", "")
-            question = entry.get("question", "")
-            
-            if not text.strip():
-                continue
-            
-            # Generate embedding (lazy load model if needed)
-            embedding = get_embed_model().encode(text).tolist()
-            
-            # Insert into database
-            # Convert embedding list to PostgreSQL vector format: '[0.1,0.2,...]'
-            embedding_str = '[' + ','.join(map(str, embedding)) + ']'
-            doc_id = str(uuid.uuid4())
-            cursor.execute(
-                f"""
-                INSERT INTO {COLLECTION_NAME} (id, document, question, embedding)
-                VALUES (%s, %s, %s, %s::vector)
-                """,
-                (doc_id, text, question, embedding_str)
-            )
+        # Second pass: process data
+        with open(DATASET_PATH, "r", encoding="utf-8") as f:
+            for line_num, line in enumerate(f, 1):
+                try:
+                    entry = json.loads(line)
+                    text = entry.get("question", "") + " " + entry.get("answer", "")
+                    question = entry.get("question", "")
+                    
+                    if not text.strip():
+                        continue
+                    
+                    batch.append((text, question))
+                    
+                    # Process batch when it reaches batch_size
+                    if len(batch) >= batch_size:
+                        # Generate embeddings for batch (batch encoding is more efficient)
+                        texts = [item[0] for item in batch]
+                        questions = [item[1] for item in batch]
+                        
+                        # Batch encode (more memory efficient than individual encoding)
+                        embeddings = get_embed_model().encode(texts, show_progress_bar=False, batch_size=32)
+                        
+                        # Insert batch
+                        for i, (text, question) in enumerate(batch):
+                            embedding_str = '[' + ','.join(map(str, embeddings[i].tolist())) + ']'
+                            doc_id = str(uuid.uuid4())
+                            cursor.execute(
+                                f"""
+                                INSERT INTO {COLLECTION_NAME} (id, document, question, embedding)
+                                VALUES (%s, %s, %s, %s::vector)
+                                """,
+                                (doc_id, text, question, embedding_str)
+                            )
+                        
+                        conn.commit()  # Commit batch to database
+                        total_processed += len(batch)
+                        
+                        # Progress update every 100 entries
+                        if total_processed % 100 == 0:
+                            print(f"Processed {total_processed}/{total_lines} entries ({100*total_processed//total_lines}%)...")
+                        
+                        batch = []  # Clear batch from memory
+                        
+                except json.JSONDecodeError as e:
+                    print(f"Warning: Skipping invalid JSON on line {line_num}: {e}")
+                    continue
+                except Exception as e:
+                    print(f"Warning: Error processing line {line_num}: {e}")
+                    continue
         
-        conn.commit()
-        print(f"Vector table '{COLLECTION_NAME}' populated with {len(data)} documents!")
+        # Process remaining items in batch
+        if batch:
+            texts = [item[0] for item in batch]
+            questions = [item[1] for item in batch]
+            embeddings = get_embed_model().encode(texts, show_progress_bar=False, batch_size=32)
+            
+            for i, (text, question) in enumerate(batch):
+                embedding_str = '[' + ','.join(map(str, embeddings[i].tolist())) + ']'
+                doc_id = str(uuid.uuid4())
+                cursor.execute(
+                    f"""
+                    INSERT INTO {COLLECTION_NAME} (id, document, question, embedding)
+                    VALUES (%s, %s, %s, %s::vector)
+                    """,
+                    (doc_id, text, question, embedding_str)
+                )
+            conn.commit()
+            total_processed += len(batch)
+        
+        print(f"Vector table '{COLLECTION_NAME}' populated with {total_processed} documents!")
     except Exception as e:
         conn.rollback()
         print(f"Error populating vector table: {e}")
@@ -229,20 +295,11 @@ def ask_groq(question: str, grade=5) -> str:
                     cursor.close()
                     conn.close()
             else:
-                # Vector table is empty - try to populate it in background (non-blocking)
-                # But don't wait for it - just proceed without RAG context
-                print(f"Vector table is empty. Will populate in background.")
-                try:
-                    # Try to populate, but don't block if it fails
-                    def populate_async():
-                        try:
-                            populate_vector_table()
-                        except Exception as e:
-                            print(f"Background population failed: {e}")
-                    thread = threading.Thread(target=populate_async, daemon=True)
-                    thread.start()
-                except Exception as e:
-                    print(f"Could not start background population: {e}")
+                # Vector table is empty - don't populate in background to save memory
+                # Background population was causing memory issues on Render free tier (512MB limit)
+                # Users should populate manually via admin endpoint or separate script
+                print(f"Vector table is empty. RAG context unavailable. Using direct Groq response.")
+                print(f"[MEMORY-SAFE] Skipping background population to prevent memory overflow.")
         except Exception as e:
             print(f"Warning: Could not access vector database: {e}")
             # Continue without RAG context - will still work with Groq

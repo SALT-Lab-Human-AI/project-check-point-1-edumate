@@ -1302,3 +1302,47 @@ async def clear_memory_metrics_endpoint(feature: Optional[str] = None):
         return {"success": True, "message": f"Cleared metrics for {feature if feature else 'all features'}"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+# === Admin endpoint for manual vector table population ===
+@app.post("/admin/populate-vector-table")
+async def populate_vector_table_endpoint():
+    """
+    Manually trigger vector table population.
+    This endpoint allows safe population when memory is available.
+    """
+    try:
+        from backend.rag_groq_bot import populate_vector_table
+        from backend.memory_tracker import get_memory_usage
+        
+        # Check current memory
+        memory = get_memory_usage()
+        print(f"[ADMIN] Vector table population requested. Current memory: {memory['process_memory_mb']:.2f}MB")
+        
+        if memory['process_memory_mb'] > 450:
+            return {
+                "success": False,
+                "error": f"Memory usage too high ({memory['process_memory_mb']:.2f}MB). Please try again when memory is lower.",
+                "current_memory_mb": memory['process_memory_mb']
+            }
+        
+        # Run population in background thread (but with memory check)
+        import threading
+        def populate_async():
+            try:
+                populate_vector_table()
+                print("[ADMIN] Vector table population completed successfully")
+            except Exception as e:
+                print(f"[ADMIN] Vector table population failed: {e}")
+        
+        thread = threading.Thread(target=populate_async, daemon=True)
+        thread.start()
+        
+        return {
+            "success": True,
+            "message": "Vector table population started in background. Check logs for progress.",
+            "current_memory_mb": memory['process_memory_mb']
+        }
+    except Exception as e:
+        print(f"[ADMIN] Error starting vector table population: {e}")
+        return {"success": False, "error": str(e)}
