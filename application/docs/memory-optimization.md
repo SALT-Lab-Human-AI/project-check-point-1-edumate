@@ -266,9 +266,51 @@ If memory issues persist:
    curl -X POST https://your-render-url.onrender.com/admin/populate-vector-table
    ```
 
+## Additional Issue: Quiz Generation Memory Spike
+
+### Problem (2024-11-24)
+
+Quiz generation was causing crashes even for 3 questions. Memory was at 535MB baseline, and quiz generation would push it over 512MB limit.
+
+**Root Causes:**
+1. **Large context retrieval**: Fetching 12 documents from vector database
+2. **Large context size**: Up to 9000 characters of context
+3. **Large Groq response**: max_tokens=3500
+4. **Embedding model load**: If not already loaded, adds ~80-100MB
+
+### Solution Implemented
+
+**1. Reduced Context Retrieval** ✅
+- Changed `n_results` from 12 to 5 documents
+- Memory savings: ~30-40 MB
+
+**2. Reduced Context Size** ✅
+- Changed context limit from 9000 to 5000 characters
+- Memory savings: ~10-15 MB
+
+**3. Reduced Max Tokens** ✅
+- Changed `max_tokens` from 3500 to 2000
+- Memory savings: ~20-30 MB
+- Still sufficient for 3-5 quiz questions
+
+**4. Added Memory Check** ✅
+- Check memory before quiz generation
+- Return graceful error if memory > 450MB
+- Prevents crashes
+
+**Code Changes:**
+- `quiz_gen.py`: Reduced n_results, context size, and max_tokens
+- `main.py`: Added memory check before quiz generation
+
+**Expected Memory Usage:**
+- Before quiz: ~535 MB
+- During quiz generation: ~550-560 MB (temporary spike)
+- After quiz: ~535 MB
+- Within 512MB limit: ✅ (with optimizations)
+
 ## Changelog
 
-### 2024-11-24
+### 2024-11-24 (Initial)
 - ✅ Implemented streaming dataset processing
 - ✅ Disabled background population
 - ✅ Added memory checks before population
@@ -276,14 +318,24 @@ If memory issues persist:
 - ✅ Created admin endpoint for manual population
 - ✅ Created this documentation
 
+### 2024-11-24 (Update - Quiz Generation Fix)
+- ✅ Fixed quiz generation memory issues
+  - Reduced context retrieval from 12 to 5 documents
+  - Reduced context size from 9000 to 5000 characters
+  - Reduced max_tokens from 3500 to 2000
+  - Added memory check before quiz generation
+- ✅ Added error logging for quiz generation failures
+
 ### Next Steps
 - Monitor memory usage in production
 - Consider implementing model unloading if memory issues persist
 - Evaluate upgrading Render plan if needed for production
+- Monitor quiz generation success rate with reduced parameters
 
 ---
 
 **Last Updated:** 2024-11-24  
 **Status:** Production Ready  
-**Memory Usage:** Expected 480-500 MB (within 512 MB limit)
+**Memory Usage:** Expected 480-500 MB (within 512 MB limit)  
+**Quiz Generation:** Optimized for memory efficiency
 

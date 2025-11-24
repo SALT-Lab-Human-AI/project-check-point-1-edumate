@@ -220,13 +220,14 @@ def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "m
     """
     Generate multiple-choice quiz items (A–D) with explanations, using
     retrieved context from Chroma and a Groq JSON-only response.
+    Memory-optimized version for Render free tier (512MB limit).
     """
-    # 1) Retrieve context
+    # 1) Retrieve context (reduced for memory efficiency)
     query = f"{topic} grade {grade} difficulty {difficulty}"
     q_emb = get_embed_model().encode(query).tolist()
-    res = collection.query(query_embeddings=[q_emb], n_results=12)
+    res = collection.query(query_embeddings=[q_emb], n_results=5)  # Reduced from 12 to 5 for memory efficiency
     docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
-    context = ("\n\n---\n".join(docs))[:9000]
+    context = ("\n\n---\n".join(docs))[:5000]  # Reduced from 9000 to 5000 for memory efficiency
 
     # 2) Prompt
     system = (
@@ -271,7 +272,7 @@ CONTEXT:
 {context}
 """.strip()
 
-    # 3) Call Groq (try JSON mode; if ignored, parser still handles it)
+    # 3) Call Groq (reduced max_tokens for memory efficiency)
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=0.1,
@@ -279,7 +280,7 @@ CONTEXT:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        max_tokens=3500,
+        max_tokens=2000,  # Reduced from 3500 to 2000 for memory efficiency on Render free tier
         response_format={"type": "json_object"},  # many Groq models honor this; safe to include
     )
 
