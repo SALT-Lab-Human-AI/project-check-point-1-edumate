@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { BookOpen, FileCheck, Brain, Clock, Target, TrendingUp, Loader2 } from "lucide-react"
 import { getStudentStats } from "@/lib/api-service"
+import { useMemoryTracking } from "@/lib/memory-tracker"
 import Link from "next/link"
 
 interface StudentStats {
@@ -29,6 +30,9 @@ export default function StudentDashboard() {
   const router = useRouter()
   const [stats, setStats] = useState<StudentStats | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Track memory usage for student dashboard
+  useMemoryTracking('student/dashboard')
 
   const loadStats = useCallback(async (isInitialLoad = false) => {
     if (!user || user.role !== "student") return

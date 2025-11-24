@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from backend.rag_groq_bot import ask_groq, init_vector_table            # RAG tutor answer
 from backend.quiz_gen import generate_quiz_items     # Quiz generator (new module)
 from backend.database import init_db, get_db, get_cursor, return_db, hash_password, verify_password, generate_id
+from backend.memory_tracker import track_memory_feature, get_memory_metrics, get_memory_summary, clear_metrics
 from datetime import datetime, date
 
 
@@ -285,6 +286,7 @@ class QuizTrackingPayload(BaseModel):
 
 # === Tutor endpoint ===
 @app.post("/ask")
+@track_memory_feature("tutor/ask")
 async def ask_question(payload: AskPayload):
     raw_answer = ask_groq(payload.question, payload.grade)
     return {"answer": format_latex(raw_answer)}
@@ -292,6 +294,7 @@ async def ask_question(payload: AskPayload):
 
 # === Quiz generation endpoint ===
 @app.post("/quiz/generate")
+@track_memory_feature("quiz/generate")
 async def quiz_generate(payload: QuizGenPayload):
     try:
         data = generate_quiz_items(
@@ -320,6 +323,7 @@ async def quiz_generate(payload: QuizGenPayload):
 
 # === Quiz grading endpoint ===
 @app.post("/quiz/grade")
+@track_memory_feature("quiz/grade")
 async def quiz_grade(payload: QuizGradePayload):
     try:
         # Calculate score
@@ -361,6 +365,7 @@ async def quiz_grade(payload: QuizGradePayload):
 
 # === Authentication endpoints ===
 @app.post("/auth/signup")
+@track_memory_feature("auth/signup")
 async def signup(payload: SignupPayload):
     """Sign up a new user (student or parent)"""
     conn = get_db()
@@ -427,6 +432,7 @@ async def signup(payload: SignupPayload):
 
 
 @app.post("/auth/login")
+@track_memory_feature("auth/login")
 async def login(payload: LoginPayload):
     """Login user"""
     conn = get_db()
@@ -463,6 +469,7 @@ async def login(payload: LoginPayload):
 
 
 @app.post("/auth/link-account")
+@track_memory_feature("auth/link-account")
 async def link_account(payload: LinkAccountPayload):
     """Link a student account to a parent account"""
     conn = get_db()
@@ -508,6 +515,7 @@ async def link_account(payload: LinkAccountPayload):
 
 
 @app.get("/auth/students/{parent_id}")
+@track_memory_feature("auth/get-students")
 async def get_linked_students(parent_id: str):
     """Get all students linked to a parent"""
     conn = get_db()
@@ -533,6 +541,7 @@ async def get_linked_students(parent_id: str):
 
 # === Quiz tracking endpoints ===
 @app.post("/quiz/track")
+@track_memory_feature("quiz/track")
 async def track_quiz(payload: QuizTrackingPayload):
     """Track a quiz attempt"""
     conn = get_db()
@@ -570,6 +579,7 @@ async def track_quiz(payload: QuizTrackingPayload):
 
 
 @app.post("/time/track")
+@track_memory_feature("time/track")
 async def track_time(payload: dict):
     """Record time spent in a module - either as a session or cumulative total"""
     conn = get_db()
@@ -664,6 +674,7 @@ async def track_time(payload: dict):
 
 
 @app.get("/stats/student/{student_id}")
+@track_memory_feature("stats/student")
 async def get_student_stats(student_id: str):
     """Get statistics for a student"""
     conn = get_db()
@@ -870,6 +881,7 @@ async def get_student_stats(student_id: str):
 
 
 @app.get("/goals/student/{student_id}")
+@track_memory_feature("goals/get")
 async def get_daily_goals(student_id: str):
     """Get daily goals for a student (today's goals, or most recent if today's doesn't exist)"""
     conn = get_db()
@@ -934,6 +946,7 @@ async def get_daily_goals(student_id: str):
 
 
 @app.post("/goals/student/{student_id}")
+@track_memory_feature("goals/set")
 async def set_daily_goals(student_id: str, payload: dict):
     """Set or update daily goals for a student (deprecated - use parent endpoint)"""
     conn = get_db()
@@ -990,6 +1003,7 @@ async def set_daily_goals(student_id: str, payload: dict):
 
 
 @app.post("/goals/parent/{parent_id}/student/{student_id}")
+@track_memory_feature("goals/parent-set")
 async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: dict):
     """Set or update daily goals for a student by their parent (with verification).
     Goals persist across days until changed."""
@@ -1061,6 +1075,7 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
 
 
 @app.get("/goals/student/{student_id}/month/{year}/{month}")
+@track_memory_feature("goals/completion")
 async def get_daily_goals_completion(student_id: str, year: int, month: int):
     """Get daily goal completion data for a specific month"""
     conn = get_db()
@@ -1165,6 +1180,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
 
 
 @app.post("/students/parent/{parent_id}/student/{student_id}/grade")
+@track_memory_feature("students/update-grade")
 async def update_student_grade_by_parent(parent_id: str, student_id: str, payload: dict):
     """Update a student's grade by their parent (with verification)"""
     conn = get_db()
@@ -1222,3 +1238,34 @@ async def update_student_grade_by_parent(parent_id: str, student_id: str, payloa
         cursor.close()
 
         return_db(conn)
+
+
+# === Memory tracking endpoints ===
+@app.get("/memory/metrics")
+async def get_memory_metrics_endpoint(feature: Optional[str] = None, limit: int = 100):
+    """Get memory usage metrics for features"""
+    try:
+        metrics = get_memory_metrics(feature_name=feature, limit=limit)
+        return {"success": True, "metrics": metrics}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/memory/summary")
+async def get_memory_summary_endpoint():
+    """Get aggregated memory usage summary"""
+    try:
+        summary = get_memory_summary()
+        return {"success": True, "summary": summary}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/memory/clear")
+async def clear_memory_metrics_endpoint(feature: Optional[str] = None):
+    """Clear memory metrics for a feature or all features"""
+    try:
+        clear_metrics(feature_name=feature)
+        return {"success": True, "message": f"Cleared metrics for {feature if feature else 'all features'}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}

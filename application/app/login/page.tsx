@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useApp } from "@/store/app-context"
+import { useMemoryTracking } from "@/lib/memory-tracker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +23,9 @@ function LoginForm() {
   const { login } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Track memory usage for login page
+  useMemoryTracking('auth/login-page')
 
   useEffect(() => {
     if (searchParams?.get("signup") === "success") {

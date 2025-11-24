@@ -14,6 +14,7 @@ import { trackQuiz } from "@/lib/api-service"
 import { useApp } from "@/store/app-context"
 import { MathRenderer } from "@/components/math-renderer"
 import { useTimeTracking } from "@/lib/use-time-tracking"
+import { useMemoryTracking } from "@/lib/memory-tracker"
 
 interface QuizQuestion {
   id: string
@@ -72,6 +73,9 @@ export default function S3Page() {
 
   // Track time spent on this page
   useTimeTracking('s3')
+  
+  // Track memory usage for S3 module
+  useMemoryTracking('student/s3')
 
   // Load topics based on grade level
   useEffect(() => {

@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react"
 import { getTopics, generateQuestion, solveS1 } from "@/lib/hybrid-service"
 import { StructuredSolutionDisplay } from "@/components/structured-solution-display"
 import { useTimeTracking } from "@/lib/use-time-tracking"
+import { useMemoryTracking } from "@/lib/memory-tracker"
 import { useApp } from "@/store/app-context"
 
 interface SolutionPhase {
@@ -37,6 +38,9 @@ export default function S1Page() {
 
   // Track time spent on this page
   useTimeTracking('s1')
+  
+  // Track memory usage for S1 module
+  useMemoryTracking('student/s1')
 
   // Load topics based on grade level
   useEffect(() => {

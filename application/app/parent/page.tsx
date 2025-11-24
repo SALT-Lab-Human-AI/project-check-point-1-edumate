@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Lock, TrendingUp, Clock, Target, Calendar, Loader2, UserPlus, Save } from "lucide-react"
 import { getLinkedStudents, getStudentStats, linkAccount, getDailyGoals, setStudentGoalsByParent, updateStudentGradeByParent, getDailyGoalsCompletion } from "@/lib/api-service"
+import { useMemoryTracking } from "@/lib/memory-tracker"
 
 interface Student {
   id: string
@@ -126,6 +127,9 @@ export default function ParentDashboard() {
   const router = useRouter()
   const [localControls, setLocalControls] = useState(parentControls)
   const [students, setStudents] = useState<Student[]>([])
+
+  // Track memory usage for parent dashboard
+  useMemoryTracking('parent/dashboard')
   const [studentStats, setStudentStats] = useState<Record<string, StudentStats>>({})
   const [studentGoals, setStudentGoals] = useState<Record<string, { target_time_seconds: number; target_quizzes: number }>>({})
   const [editingGoals, setEditingGoals] = useState<Record<string, { target_time_seconds: number; target_quizzes: number }>>({})

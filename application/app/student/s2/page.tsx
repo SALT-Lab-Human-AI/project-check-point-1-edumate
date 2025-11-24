@@ -13,6 +13,7 @@ import { submitS2, getTopics, generateQuestion } from "@/lib/hybrid-service"
 import { MathRenderer } from "@/components/math-renderer"
 import { FeedbackDisplay } from "@/components/feedback-display"
 import { useTimeTracking } from "@/lib/use-time-tracking"
+import { useMemoryTracking } from "@/lib/memory-tracker"
 import { useApp } from "@/store/app-context"
 
 interface FeedbackData {
@@ -46,6 +47,9 @@ export default function S2Page() {
 
   // Track time spent on this page
   useTimeTracking('s2')
+  
+  // Track memory usage for S2 module
+  useMemoryTracking('student/s2')
 
   // Ensure mode is set to hints if direct mode is disabled
   useEffect(() => {

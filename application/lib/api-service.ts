@@ -1,4 +1,6 @@
 // API service for connecting to the Python FastAPI backend
+import { trackMemoryFeature } from './memory-tracker'
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -24,10 +26,12 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 // Ask a question to the AI tutor
 export async function askQuestion(question: string, grade: number): Promise<{ answer: string }> {
-  await delay(300) // Simulate network delay
-  return apiCall<{ answer: string }>('/ask', {
-    method: 'POST',
-    body: JSON.stringify({ question, grade }),
+  return trackMemoryFeature('api/ask', async () => {
+    await delay(300) // Simulate network delay
+    return apiCall<{ answer: string }>('/ask', {
+      method: 'POST',
+      body: JSON.stringify({ question, grade }),
+    })
   })
 }
 
@@ -52,22 +56,24 @@ export async function generateQuiz(payload: {
     difficulty: string
   }
 }> {
-  await delay(500) // Simulate network delay
-  
-  const difficultyMap = {
-    easy: "easy",
-    medium: "medium", 
-    hard: "hard"
-  }
+  return trackMemoryFeature('api/quiz-generate', async () => {
+    await delay(500) // Simulate network delay
+    
+    const difficultyMap = {
+      easy: "easy",
+      medium: "medium", 
+      hard: "hard"
+    }
 
-  return apiCall('/quiz/generate', {
-    method: 'POST',
-    body: JSON.stringify({
-      topic: payload.topic,
-      grade: payload.grade,
-      num_questions: payload.count,
-      difficulty: difficultyMap[payload.difficulty],
-    }),
+    return apiCall('/quiz/generate', {
+      method: 'POST',
+      body: JSON.stringify({
+        topic: payload.topic,
+        grade: payload.grade,
+        num_questions: payload.count,
+        difficulty: difficultyMap[payload.difficulty],
+      }),
+    })
   })
 }
 
@@ -96,11 +102,13 @@ export async function gradeQuiz(payload: {
     explanation_md: string
   }>
 }> {
-  await delay(400) // Simulate network delay
-  
-  return apiCall('/quiz/grade', {
-    method: 'POST',
-    body: JSON.stringify(payload),
+  return trackMemoryFeature('api/quiz-grade', async () => {
+    await delay(400) // Simulate network delay
+    
+    return apiCall('/quiz/grade', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
   })
 }
 
