@@ -352,12 +352,14 @@ async def quiz_generate(payload: QuizGenPayload):
         if memory_mb > 500:
             print(f"[QUIZ-MEMORY] Memory is high ({memory_mb:.2f}MB). Quiz generation will use minimal mode.")
         
+        print(f"[QUIZ-GENERATE] Starting quiz generation: topic={payload.topic}, grade={payload.grade}, n={payload.num_questions}, difficulty={payload.difficulty}")
         data = generate_quiz_items(
             topic=payload.topic,
             grade=payload.grade,
             n=payload.num_questions,
             difficulty=payload.difficulty,
         )
+        print(f"[QUIZ-GENERATE] Generated {len(data.get('items', []))} items")
         # Normalize LaTeX so the frontend renders nicely
         for it in data.get("items", []):
             it["question_md"] = format_latex(it.get("question_md", ""))
@@ -365,7 +367,9 @@ async def quiz_generate(payload: QuizGenPayload):
         return data
     except Exception as e:
         # Never 500 to the browser; return a graceful payload
+        import traceback
         print(f"[QUIZ-ERROR] Quiz generation failed: {e}")
+        print(f"[QUIZ-ERROR] Traceback: {traceback.format_exc()}")
         return {
             "items": [],
             "meta": {
@@ -681,7 +685,7 @@ async def track_time(payload: dict):
                 new_total = total_record["total_time_seconds"] + time_spent_seconds
                 cursor.execute("""
                     UPDATE total_time_tracking 
-                    SET total_time_seconds = %s, last_updated = datetime('now')
+                    SET total_time_seconds = %s, last_updated = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """, (new_total, total_record["id"]))
             else:
@@ -705,7 +709,7 @@ async def track_time(payload: dict):
                 new_total = total_record["total_time_seconds"] + time_spent_seconds
                 cursor.execute("""
                     UPDATE total_time_tracking 
-                    SET total_time_seconds = %s, last_updated = datetime('now')
+                    SET total_time_seconds = %s, last_updated = CURRENT_TIMESTAMP
                     WHERE id = %s
                 """, (new_total, total_record["id"]))
             else:
@@ -872,10 +876,20 @@ async def get_student_stats(student_id: str):
                         date_val_clean = date_val.split('.')[0].replace('Z', '+00:00')
                         parsed = datetime.fromisoformat(date_val_clean)
                         return parsed
-                    # Handle SQLite datetime format: "2025-11-06 23:24:19"
+                    # Handle PostgreSQL datetime format: "2025-11-06 23:24:19" or "2025-11-25 21:50:41.759000" (with microseconds)
                     elif ' ' in date_val and 'T' not in date_val:
-                        parsed = datetime.strptime(date_val, '%Y-%m-%d %H:%M:%S')
-                        return parsed
+                        # Try with microseconds first, then without
+                        try:
+                            # Handle microseconds: "2025-11-25 21:50:41.759000"
+                            if '.' in date_val:
+                                parsed = datetime.strptime(date_val.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                            else:
+                                parsed = datetime.strptime(date_val, '%Y-%m-%d %H:%M:%S')
+                            return parsed
+                        except ValueError:
+                            # Fallback: try parsing with fromisoformat
+                            parsed = datetime.fromisoformat(date_val.replace('Z', '+00:00'))
+                            return parsed
                     else:
                         # Try generic ISO format
                         parsed = datetime.fromisoformat(date_val.replace('Z', '+00:00'))
@@ -1030,7 +1044,7 @@ async def set_daily_goals(student_id: str, payload: dict):
                 UPDATE daily_goals
                 SET target_time_seconds = %s,
                     target_quizzes = %s,
-                    updated_at = datetime('now')
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             """, (target_time_seconds, target_quizzes, existing["id"]))
         else:
@@ -1102,7 +1116,7 @@ async def set_student_goals_by_parent(parent_id: str, student_id: str, payload: 
                 UPDATE daily_goals
                 SET target_time_seconds = %s,
                     target_quizzes = %s,
-                    updated_at = datetime('now')
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
             """, (target_time_seconds, target_quizzes, existing["id"]))
         else:
@@ -1151,7 +1165,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         cursor.execute("""
             SELECT goal_date, target_time_seconds, target_quizzes
             FROM daily_goals
-            WHERE student_id = %s AND goal_date >= ? AND goal_date <= ?
+            WHERE student_id = %s AND goal_date >= %s AND goal_date <= %s
         """, (student_id, first_day.isoformat(), last_day.isoformat()))
         
         goals = {row["goal_date"]: row for row in cursor.fetchall()}
@@ -1173,7 +1187,7 @@ async def get_daily_goals_completion(student_id: str, year: int, month: int):
         cursor.execute("""
             SELECT session_date, SUM(total_time_seconds) as total_time
             FROM total_time_tracking
-            WHERE student_id = %s AND session_date >= ? AND session_date <= ?
+            WHERE student_id = %s AND session_date >= %s AND session_date <= %s
             GROUP BY session_date
         """, (student_id, first_day.isoformat(), last_day.isoformat()))
         
