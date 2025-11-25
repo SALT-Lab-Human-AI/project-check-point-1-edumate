@@ -329,10 +329,15 @@ async def ask_question(payload: AskPayload):
 @track_memory_feature("quiz/generate")
 async def quiz_generate(payload: QuizGenPayload):
     try:
-        # Check memory before generating quiz (quiz generation can be memory-intensive)
+        # Check memory before generating quiz (safety check to prevent crashes)
         memory = get_memory_usage()
-        if memory['process_memory_mb'] > 450:
-            print(f"[MEMORY-WARNING] Quiz generation skipped. Memory too high: {memory['process_memory_mb']:.2f}MB")
+        memory_mb = memory['process_memory_mb']
+        
+        # Safety threshold: prevent quiz generation if memory is extremely high
+        # This prevents crashes. The quiz generation function will optimize internally
+        # for memory levels between 500-650MB
+        if memory_mb > 650:
+            print(f"[MEMORY-WARNING] Quiz generation skipped. Memory too high: {memory_mb:.2f}MB")
             return {
                 "items": [],
                 "meta": {
@@ -340,8 +345,12 @@ async def quiz_generate(payload: QuizGenPayload):
                     "grade": payload.grade,
                     "difficulty": payload.difficulty,
                 },
-                "error": f"Memory usage too high ({memory['process_memory_mb']:.2f}MB). Please try again in a moment.",
+                "error": f"Memory usage too high ({memory_mb:.2f}MB). Please try again in a moment.",
             }
+        
+        # If memory is high but below threshold, log it (quiz generation will optimize internally)
+        if memory_mb > 500:
+            print(f"[QUIZ-MEMORY] Memory is high ({memory_mb:.2f}MB). Quiz generation will use minimal mode.")
         
         data = generate_quiz_items(
             topic=payload.topic,

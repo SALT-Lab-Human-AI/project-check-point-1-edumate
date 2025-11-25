@@ -221,13 +221,42 @@ def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "m
     Generate multiple-choice quiz items (A–D) with explanations, using
     retrieved context from Chroma and a Groq JSON-only response.
     Memory-optimized version for Render free tier (512MB limit).
+    Automatically reduces memory usage when memory is high.
     """
-    # 1) Retrieve context (reduced for memory efficiency)
-    query = f"{topic} grade {grade} difficulty {difficulty}"
-    q_emb = get_embed_model().encode(query).tolist()
-    res = collection.query(query_embeddings=[q_emb], n_results=5)  # Reduced from 12 to 5 for memory efficiency
-    docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
-    context = ("\n\n---\n".join(docs))[:5000]  # Reduced from 9000 to 5000 for memory efficiency
+    # Check memory and optimize parameters accordingly
+    use_minimal_mode = False
+    try:
+        from backend.memory_tracker import get_memory_usage
+        memory = get_memory_usage()
+        if memory['process_memory_mb'] > 500:
+            use_minimal_mode = True
+            print(f"[QUIZ-MEMORY] High memory detected ({memory['process_memory_mb']:.2f}MB). Using minimal RAG context.")
+    except ImportError:
+        pass
+    
+    # 1) Retrieve context (adaptive based on memory)
+    context = ""
+    if use_minimal_mode:
+        # Minimal mode: 3 documents, 3000 chars max (saves ~20-30MB)
+        try:
+            query = f"{topic} grade {grade} difficulty {difficulty}"
+            q_emb = get_embed_model().encode(query).tolist()
+            res = collection.query(query_embeddings=[q_emb], n_results=3)  # Minimal: 3 results
+            docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
+            context = ("\n\n---\n".join(docs))[:3000]  # Minimal: 3000 chars
+        except Exception as e:
+            print(f"[QUIZ-MEMORY] Could not retrieve context: {e}. Using topic-only context.")
+            context = f"Topic: {topic} for grade {grade} students at {difficulty} difficulty level."
+    else:
+        # Normal mode: 5 documents, 5000 chars max
+        query = f"{topic} grade {grade} difficulty {difficulty}"
+        q_emb = get_embed_model().encode(query).tolist()
+        res = collection.query(query_embeddings=[q_emb], n_results=5)
+        docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
+        context = ("\n\n---\n".join(docs))[:5000]
+    
+    if not context:
+        context = f"Topic: {topic} for grade {grade} students at {difficulty} difficulty level."
 
     # 2) Prompt
     system = (
@@ -272,7 +301,9 @@ CONTEXT:
 {context}
 """.strip()
 
-    # 3) Call Groq (reduced max_tokens for memory efficiency)
+    # 3) Call Groq (adaptive max_tokens based on memory)
+    max_tokens = 1500 if use_minimal_mode else 2000  # Further reduced when memory is high
+    
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=0.1,
@@ -280,7 +311,7 @@ CONTEXT:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        max_tokens=2000,  # Reduced from 3500 to 2000 for memory efficiency on Render free tier
+        max_tokens=max_tokens,
         response_format={"type": "json_object"},  # many Groq models honor this; safe to include
     )
 

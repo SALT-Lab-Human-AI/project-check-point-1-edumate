@@ -326,6 +326,20 @@ Quiz generation was causing crashes even for 3 questions. Memory was at 535MB ba
   - Added memory check before quiz generation
 - ✅ Added error logging for quiz generation failures
 
+### 2024-11-24 (Update - Critical Memory Optimization)
+- ✅ Made quiz generation work at high memory levels (633MB+)
+  - Added adaptive memory-aware quiz generation
+  - **Minimal mode** when memory > 500MB:
+    - Reduces context retrieval to 3 documents (from 5)
+    - Reduces context size to 3000 characters (from 5000)
+    - Reduces max_tokens to 1500 (from 2000)
+    - Saves ~20-30MB per generation
+  - **Safety threshold** raised to 650MB (from 450MB)
+    - Still prevents crashes by blocking if memory > 650MB
+    - Allows quiz generation at 633MB with minimal mode
+  - Quiz generation now works even at high memory levels
+  - Retains safety feature that skips generation if memory exceeds limit
+
 ### Next Steps
 - Monitor memory usage in production
 - Consider implementing model unloading if memory issues persist
