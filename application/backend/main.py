@@ -582,16 +582,17 @@ async def get_linked_students(parent_id: str):
             SELECT u.id, u.email, u.name, u.grade
             FROM users u
             INNER JOIN parent_student_links psl ON u.id = psl.student_id
-            WHERE psl.parent_id = ?
+            WHERE psl.parent_id = %s
         """, (parent_id,))
         
         students = [dict(row) for row in cursor.fetchall()]
+        print(f"[GET-LINKED-STUDENTS] Found {len(students)} students for parent {parent_id}")
         return {"success": True, "students": students}
     except Exception as e:
-        return {"error": str(e), "success": False}
+        print(f"[GET-LINKED-STUDENTS] Error fetching students for parent {parent_id}: {e}")
+        return {"error": str(e), "success": False, "students": []}
     finally:
         cursor.close()
-
         return_db(conn)
 
 

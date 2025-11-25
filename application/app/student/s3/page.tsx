@@ -53,7 +53,9 @@ export default function S3Page() {
   const { user, parentControls } = useApp()
   const grade = user?.grade || 8 // Use grade from user profile (set by parent)
   const [topic, setTopic] = useState("")
-  const [questionCount, setQuestionCount] = useState(5)
+  // Use parent's fixed question count if set, otherwise default to 5
+  const fixedQuestionCount = parentControls?.fixedQuestionCount
+  const [questionCount, setQuestionCount] = useState(fixedQuestionCount || 5)
   // Use parent's locked difficulty if set, otherwise allow student to choose
   const lockedDifficulty = parentControls?.lockedDifficulty
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">(
@@ -111,6 +113,13 @@ export default function S3Page() {
     }
   }, [lockedDifficulty])
 
+  // Update question count when parent controls change - use fixed count if set
+  useEffect(() => {
+    if (fixedQuestionCount !== null && fixedQuestionCount !== undefined) {
+      setQuestionCount(fixedQuestionCount)
+    }
+  }, [fixedQuestionCount])
+
   // Get the actual difficulty to use - prefer locked difficulty if set
   const actualDifficulty = (lockedDifficulty && lockedDifficulty !== null) 
     ? (lockedDifficulty as "easy" | "medium" | "hard")
@@ -122,6 +131,11 @@ export default function S3Page() {
       return
     }
 
+    // Use fixed question count if set by parent, otherwise use student's selection
+    const actualQuestionCount = fixedQuestionCount !== null && fixedQuestionCount !== undefined 
+      ? fixedQuestionCount 
+      : questionCount
+
     setIsLoading(true)
     setError(null)
     
@@ -129,7 +143,7 @@ export default function S3Page() {
       const quiz = await generateQuiz({
         grade,
         topic,
-        count: questionCount,
+        count: actualQuestionCount,
         difficulty: actualDifficulty
       })
       
@@ -513,8 +527,14 @@ export default function S3Page() {
                   max={5} 
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  disabled={fixedQuestionCount !== null && fixedQuestionCount !== undefined}
                   className="mt-1" 
                 />
+                {fixedQuestionCount !== null && fixedQuestionCount !== undefined && (
+                  <p className="text-xs text-text/60 mt-1">
+                    Question count is locked by parent ({fixedQuestionCount} questions)
+                  </p>
+                )}
               </div>
 
               {/* Only show difficulty selection if parent hasn't locked it */}
