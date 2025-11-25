@@ -151,9 +151,11 @@ export default function S3Page() {
       setSelectedAnswers({})
       setCurrentQuestion(0)
       setView("quiz")
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to generate quiz:", err)
-      setError("Failed to generate quiz. Please try again.")
+      // Display the actual error message from the API
+      const errorMessage = err?.message || err?.toString() || "Failed to generate quiz. Please try again."
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }

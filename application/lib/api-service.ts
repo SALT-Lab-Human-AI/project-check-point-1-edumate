@@ -9,19 +9,47 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  })
+  // Add timeout for quiz generation (90 seconds) and other long operations
+  const timeout = (endpoint === '/quiz/generate' || endpoint === '/ask') ? 90000 : 30000
+  
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      ...options,
+      signal: controller.signal,
+    })
 
-  if (!response.ok) {
-    throw new Error(`API call failed: ${response.status} ${response.statusText}`)
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `API call failed: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    
+    // Check for error in response body (backend returns 200 with error field)
+    if (data.error && (!data.items || data.items.length === 0)) {
+      throw new Error(data.error)
+    }
+    
+    return data
+  } catch (error: any) {
+    clearTimeout(timeoutId)
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout - the server is taking too long to respond. Please try again.')
+    }
+    if (error.message) {
+      throw error
+    }
+    throw new Error(error.toString() || 'Unknown error occurred')
   }
-
-  return response.json()
 }
 
 // Ask a question to the AI tutor
@@ -57,23 +85,40 @@ export async function generateQuiz(payload: {
   }
 }> {
   return trackMemoryFeature('api/quiz-generate', async () => {
-    await delay(500) // Simulate network delay
+    console.log('[FRONTEND] Starting quiz generation:', payload)
     
-    const difficultyMap = {
-      easy: "easy",
-      medium: "medium", 
-      hard: "hard"
-    }
+    try {
+      const difficultyMap = {
+        easy: "easy",
+        medium: "medium", 
+        hard: "hard"
+      }
 
-    return apiCall('/quiz/generate', {
-      method: 'POST',
-      body: JSON.stringify({
-        topic: payload.topic,
-        grade: payload.grade,
-        num_questions: payload.count,
-        difficulty: difficultyMap[payload.difficulty],
-      }),
-    })
+      const result = await apiCall('/quiz/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          topic: payload.topic,
+          grade: payload.grade,
+          num_questions: payload.count,
+          difficulty: difficultyMap[payload.difficulty],
+        }),
+      })
+      
+      console.log('[FRONTEND] Quiz generation result:', result)
+      
+      // Check if we got items
+      if (!result.items || result.items.length === 0) {
+        const errorMsg = result.error || 'No quiz items were generated. Please try again.'
+        console.error('[FRONTEND] No quiz items generated:', errorMsg)
+        throw new Error(errorMsg)
+      }
+      
+      return result
+    } catch (error: any) {
+      console.error('[FRONTEND] Quiz generation error:', error)
+      // Re-throw with the actual error message
+      throw error
+    }
   })
 }
 
