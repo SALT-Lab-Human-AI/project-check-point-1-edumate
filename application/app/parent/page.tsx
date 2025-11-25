@@ -602,8 +602,8 @@ export default function ParentDashboard() {
                   <Input
                     id="fixed-count"
                     type="number"
-                    min={3}
-                    max={15}
+                    min={1}
+                    max={5}
                     value={localControls.fixedQuestionCount}
                     onChange={(e) =>
                       setLocalControls({

@@ -509,8 +509,8 @@ export default function S3Page() {
                 <Input 
                   id="count" 
                   type="number" 
-                  min={3} 
-                  max={15} 
+                  min={1} 
+                  max={5} 
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
                   className="mt-1" 
