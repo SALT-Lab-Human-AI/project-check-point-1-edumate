@@ -242,26 +242,26 @@ def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "m
     # Ultra-minimal mode for single question
     if n == 1:
         context = f"Topic: {topic} for grade {grade}."
-        max_tokens = 600
+        max_tokens = 2000
         use_rag = False
         print(f"[QUIZ-MEMORY] Ultra-minimal mode for 1 question. Memory: {memory_mb:.2f}MB")
     # Skip RAG entirely if memory is high
     elif memory_mb > 480:
         context = f"Topic: {topic} for grade {grade} students at {difficulty} difficulty."
-        max_tokens = 1000
+        max_tokens = 2000
         use_rag = False
         print(f"[QUIZ-MEMORY] Skipping RAG to save memory. Memory: {memory_mb:.2f}MB")
     # Minimal RAG mode
     elif memory_mb > 450:
         use_rag = True
-        max_tokens = 1200
+        max_tokens = 2000
         n_results = 2  # Only 2 documents
         context_limit = 1500
         print(f"[QUIZ-MEMORY] Minimal RAG mode (2 docs, 1500 chars). Memory: {memory_mb:.2f}MB")
     # Normal mode
     else:
         use_rag = True
-        max_tokens = 1500
+        max_tokens = 2000
         n_results = 3
         context_limit = 3000
         print(f"[QUIZ-MEMORY] Normal mode (3 docs, 3000 chars). Memory: {memory_mb:.2f}MB")
