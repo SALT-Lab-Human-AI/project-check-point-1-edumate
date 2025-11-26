@@ -48,6 +48,12 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
       throw new Error('Request timeout - the server is taking too long to respond. Please try again.')
     }
     
+    // Handle TypeError: Failed to fetch (network errors, CORS, 502, etc.)
+    // This is the most common error when backend crashes or is unavailable
+    if (error instanceof TypeError && (error.message === 'Failed to fetch' || error.message?.includes('Failed to fetch'))) {
+      throw new Error('Server error (502 Bad Gateway): The backend server may be restarting, crashed, or unavailable. The CORS error you see is because the server crashed before sending a response. Please check Render logs and try again in a moment.')
+    }
+    
     // Handle network errors (CORS, connection refused, 502 Bad Gateway, etc.)
     if (error.message && error.message.includes('Failed to fetch')) {
       throw new Error('Unable to connect to the server. This could be due to CORS issues, server being down, or network problems. Please check if the backend is running and try again.')
@@ -64,12 +70,13 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
     }
     
     // If error already has a message, use it
-    if (error.message) {
+    if (error instanceof Error && error.message) {
       throw error
     }
     
-    // Fallback
-    throw new Error(error.toString() || 'Unknown error occurred')
+    // Fallback - ensure we always throw an Error object
+    const errorMessage = error?.message || error?.toString() || 'Unknown error occurred'
+    throw new Error(errorMessage)
   }
 }
 
@@ -137,8 +144,19 @@ export async function generateQuiz(payload: {
       return result
     } catch (error: any) {
       console.error('[FRONTEND] Quiz generation error:', error)
-      // Re-throw with the actual error message
-      throw error
+      console.error('[FRONTEND] Error type:', typeof error)
+      console.error('[FRONTEND] Error name:', error?.name)
+      console.error('[FRONTEND] Error message:', error?.message)
+      console.error('[FRONTEND] Error toString:', error?.toString())
+      
+      // Ensure we always throw an Error object with a message
+      if (error instanceof Error) {
+        throw error
+      } else if (error?.message) {
+        throw new Error(error.message)
+      } else {
+        throw new Error(error?.toString() || 'Failed to generate quiz. Please try again.')
+      }
     }
   })
 }

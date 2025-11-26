@@ -5,6 +5,12 @@ from typing import List, Dict, Any, Optional
 from backend.rag_groq_bot import collection, get_embed_model, client, GROQ_MODEL
 
 
+def _normalize_latex_if_needed(md: str) -> str:
+    """Only normalize if LaTeX is detected - saves memory by skipping expensive regex"""
+    if not md or ('\\' not in md and '$' not in md):
+        return md  # Skip expensive regex if no LaTeX detected
+    return _normalize_latex(md)
+
 def _normalize_latex(md: str) -> str:
     r"""Convert \[...\] -> $$...$$ and \(...\) -> $...$ for KaTeX on the frontend."""
     if not md:
@@ -154,10 +160,10 @@ def _normalize_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         out.append(
             {
                 "id": qid,
-                "question_md": _normalize_latex(qmd),
+                "question_md": _normalize_latex_if_needed(qmd),
                 "choices": fixed,
                 "correct": correct if correct in ["A", "B", "C", "D"] else "",
-                "explanation_md": _normalize_latex(exp),
+                "explanation_md": _normalize_latex_if_needed(exp),
                 "skill_tag": skill,
             }
         )
@@ -206,10 +212,10 @@ def _fallback_items(topic: str, grade: int, n: int) -> List[Dict[str, Any]]:
     return [
         {
             "id": f"fallback-{i+1}",
-            "question_md": _normalize_latex(base_q),
+            "question_md": _normalize_latex_if_needed(base_q),
             "choices": base_choices,
             "correct": "A",
-            "explanation_md": _normalize_latex("The topic itself is the best match."),
+            "explanation_md": _normalize_latex_if_needed("The topic itself is the best match."),
             "skill_tag": "fallback",
         }
         for i in range(n)
@@ -218,92 +224,90 @@ def _fallback_items(topic: str, grade: int, n: int) -> List[Dict[str, Any]]:
 
 def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "medium") -> Dict[str, Any]:
     """
-    Generate multiple-choice quiz items (A–D) with explanations, using
-    retrieved context from Chroma and a Groq JSON-only response.
-    Memory-optimized version for Render free tier (512MB limit).
-    Automatically reduces memory usage when memory is high.
+    Ultra memory-optimized quiz generation for Render free tier (512MB limit).
+    Implements multiple optimization strategies to minimize memory usage.
     """
-    # Check memory and optimize parameters accordingly
-    use_minimal_mode = False
-    try:
-        from backend.memory_tracker import get_memory_usage
-        memory = get_memory_usage()
-        if memory['process_memory_mb'] > 500:
-            use_minimal_mode = True
-            print(f"[QUIZ-MEMORY] High memory detected ({memory['process_memory_mb']:.2f}MB). Using minimal RAG context.")
-    except ImportError:
-        pass
+    import gc
+    from backend.memory_tracker import get_memory_usage
     
-    # 1) Retrieve context (adaptive based on memory)
-    context = ""
-    if use_minimal_mode:
-        # Minimal mode: 3 documents, 3000 chars max (saves ~20-30MB)
-        try:
-            query = f"{topic} grade {grade} difficulty {difficulty}"
-            q_emb = get_embed_model().encode(query).tolist()
-            res = collection.query(query_embeddings=[q_emb], n_results=3)  # Minimal: 3 results
-            docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
-            context = ("\n\n---\n".join(docs))[:3000]  # Minimal: 3000 chars
-        except Exception as e:
-            print(f"[QUIZ-MEMORY] Could not retrieve context: {e}. Using topic-only context.")
-            context = f"Topic: {topic} for grade {grade} students at {difficulty} difficulty level."
+    # Get current memory usage
+    try:
+        memory = get_memory_usage()
+        memory_mb = memory['process_memory_mb']
+    except Exception:
+        memory_mb = 500  # Assume high memory if we can't check
+        print("[QUIZ-MEMORY] Could not check memory, assuming high memory mode")
+    
+    # Determine optimization level based on memory and question count
+    # Ultra-minimal mode for single question
+    if n == 1:
+        context = f"Topic: {topic} for grade {grade}."
+        max_tokens = 600
+        use_rag = False
+        print(f"[QUIZ-MEMORY] Ultra-minimal mode for 1 question. Memory: {memory_mb:.2f}MB")
+    # Skip RAG entirely if memory is high
+    elif memory_mb > 480:
+        context = f"Topic: {topic} for grade {grade} students at {difficulty} difficulty."
+        max_tokens = 1000
+        use_rag = False
+        print(f"[QUIZ-MEMORY] Skipping RAG to save memory. Memory: {memory_mb:.2f}MB")
+    # Minimal RAG mode
+    elif memory_mb > 450:
+        use_rag = True
+        max_tokens = 1200
+        n_results = 2  # Only 2 documents
+        context_limit = 1500
+        print(f"[QUIZ-MEMORY] Minimal RAG mode (2 docs, 1500 chars). Memory: {memory_mb:.2f}MB")
+    # Normal mode
     else:
-        # Normal mode: 5 documents, 5000 chars max
-        query = f"{topic} grade {grade} difficulty {difficulty}"
-        q_emb = get_embed_model().encode(query).tolist()
-        res = collection.query(query_embeddings=[q_emb], n_results=5)
-        docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
-        context = ("\n\n---\n".join(docs))[:5000]
+        use_rag = True
+        max_tokens = 1500
+        n_results = 3
+        context_limit = 3000
+        print(f"[QUIZ-MEMORY] Normal mode (3 docs, 3000 chars). Memory: {memory_mb:.2f}MB")
+    
+    # Retrieve context if using RAG
+    if use_rag:
+        try:
+            query = f"{topic} grade {grade}"  # Simplified query
+            q_emb = get_embed_model().encode(query).tolist()
+            res = collection.query(query_embeddings=[q_emb], n_results=n_results)
+            docs = res.get("documents", [[]])[0] if res and res.get("documents") else []
+            context = ("\n\n---\n".join(docs))[:context_limit]
+            
+            # Clear large variables immediately to free memory
+            del q_emb, res, docs
+            gc.collect()
+            
+            # Unload embedding model if memory is high (saves ~80-100MB)
+            if memory_mb > 480:
+                import backend.rag_groq_bot as rag_module
+                rag_module._embed_model = None
+                gc.collect()
+                print("[QUIZ-MEMORY] Unloaded embedding model to save memory")
+        except Exception as e:
+            print(f"[QUIZ-MEMORY] RAG failed: {e}. Using topic-only context.")
+            context = f"Topic: {topic} for grade {grade}."
     
     if not context:
         context = f"Topic: {topic} for grade {grade} students at {difficulty} difficulty level."
 
-    # 2) Prompt
+    # Simplified prompts to reduce memory (shorter = less memory)
     system = (
-        "You are an expert K-12 quiz writer. "
+        f"Expert K-12 quiz writer for grade {grade}. "
         f"{_grade_hint(grade)} "
-        "Use ONLY the provided context to avoid errors. "
-        "For math, use LaTeX $$...$$ (block) and \\(...\\) (inline). "
-        "IMPORTANT: Use correct LaTeX syntax. For \\begin{{aligned}}...\\end{{aligned}}, use \\end{{aligned}} NOT $\\end${{aligned}} or \\end${{aligned}}. "
-        "Never use $ signs inside \\begin or \\end commands. Use proper LaTeX syntax only. "
-        "Return STRICT JSON ONLY. Do not include backticks or extra prose. "
-        "The root must be an object with an 'items' array."
+        "Use context only. LaTeX: $$...$$ (block), \\(...\\) (inline). "
+        "Return JSON only: {{'items': [...]}}"
     )
-    user = f"""
-Generate exactly {n} multiple-choice questions for grade {grade} on the topic "{topic}" at {difficulty} difficulty.
-Each item must be solvable for that grade. Make choices plausible; only one correct option (A–D). Include a short explanation.
-
-LATEX FORMATTING RULES:
-- For block math (equations, systems), use: $$\\begin{{aligned}}...\\end{{aligned}}$$
-- For inline math, use: \\(...\\)
-- NEVER use $ signs inside \\begin or \\end commands
-- Use correct LaTeX syntax: \\end{{aligned}} NOT $\\end${{aligned}} or \\end${{aligned}}
-- For systems of equations, use: $$\\begin{{cases}}...\\end{{cases}}$$
-- For line breaks in cases/aligned environments, use \\\\ (double backslash) NOT || (double pipe)
-- Example: $$\\begin{{cases}}x+y=5\\\\x-y=3\\end{{cases}}$$ NOT $$\\begin{{cases}}x+y=5||x-y=3\\end{{cases}}$$
-- Always use proper LaTeX syntax with correct escaping
-
-Return a JSON object exactly:
-{{
-  "items": [
-    {{
-      "id": "uuid",
-      "question_md": "markdown with LaTeX if needed",
-      "choices": {{"A":"...", "B":"...", "C":"...", "D":"..."}},
-      "correct": "A",
-      "explanation_md": "markdown with LaTeX if needed",
-      "skill_tag": "e.g., linear_equations"
-    }}
-  ]
-}}
-
-CONTEXT:
-{context}
-""".strip()
-
-    # 3) Call Groq (adaptive max_tokens based on memory)
-    max_tokens = 1500 if use_minimal_mode else 2000  # Further reduced when memory is high
     
+    # Simplified user prompt - removed verbose LaTeX rules to save memory
+    user = (
+        f"Generate {n} multiple-choice questions for grade {grade} on '{topic}' ({difficulty}). "
+        f"One correct answer (A-D). Include explanation.\n\n"
+        f"Context: {context}"
+    )
+
+    # Call Groq with optimized settings
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         temperature=0.1,
@@ -312,20 +316,27 @@ CONTEXT:
             {"role": "user", "content": user},
         ],
         max_tokens=max_tokens,
-        response_format={"type": "json_object"},  # many Groq models honor this; safe to include
+        response_format={"type": "json_object"},
     )
 
     raw = response.choices[0].message.content if response.choices else "{}"
+    
+    # Clear response object immediately to free memory
+    del response
+    gc.collect()
 
-    # 4) Parse items safely
+    # Parse items safely
     items = _safe_parse_items(raw)
     if not items:
-        # Fallback minimal quiz to avoid 500
         items = _fallback_items(topic, grade, n)
 
     items = _normalize_items(items)
     if len(items) > n:
         items = items[:n]
+    
+    # Clear raw string after processing
+    del raw
+    gc.collect()
 
     return {
         "items": items,

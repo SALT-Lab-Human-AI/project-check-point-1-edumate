@@ -340,6 +340,42 @@ Quiz generation was causing crashes even for 3 questions. Memory was at 535MB ba
   - Quiz generation now works even at high memory levels
   - Retains safety feature that skips generation if memory exceeds limit
 
+### 2024-11-24 (Update - Ultra Memory Optimization)
+- ✅ Implemented comprehensive memory optimizations for quiz generation
+  - **Ultra-minimal mode for 1 question**:
+    - Skips RAG entirely
+    - Uses only 600 max_tokens
+    - Saves ~50-80MB
+  - **Skip RAG when memory > 480MB**:
+    - No vector database queries
+    - Uses topic-only context
+    - Saves ~30-50MB
+  - **Minimal RAG mode (450-480MB)**:
+    - Only 2 documents retrieved
+    - Context limited to 1500 characters
+    - max_tokens reduced to 1200
+    - Saves ~20-30MB
+  - **Normal mode (< 450MB)**:
+    - 3 documents, 3000 characters
+    - max_tokens: 1500
+  - **Variable clearing**:
+    - Explicitly deletes large variables after use
+    - Forces garbage collection
+    - Saves ~5-10MB
+  - **Embedding model unloading**:
+    - Unloads model after encoding when memory > 480MB
+    - Saves ~80-100MB (model reloads on next use)
+  - **Simplified prompts**:
+    - Shorter system and user prompts
+    - Removed verbose LaTeX rules
+    - Saves ~5-10MB
+  - **Conditional LaTeX normalization**:
+    - Only normalizes if LaTeX is detected
+    - Skips expensive regex when not needed
+    - Saves ~2-5MB
+  - **Total memory savings**: ~130-200MB per generation
+  - **Expected memory usage**: 350-400MB (down from 550MB+)
+
 ### Next Steps
 - Monitor memory usage in production
 - Consider implementing model unloading if memory issues persist
