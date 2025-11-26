@@ -69,12 +69,14 @@ async def startup_event():
     signal.signal(signal.SIGTERM, signal_handler)
 
 # === CORS (allow your React dev server; tighten in prod) ===
+# Allow all origins for now (can be restricted in production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # Allow all origins
-    allow_credentials=False,      # Must be False when using allow_origins=["*"]
-    allow_methods=["*"],          # Allow all methods (GET, POST, OPTIONS, etc.)
-    allow_headers=["*"],          # Allow all headers
+    allow_origins=["*"],          # Allow all origins (including Vercel)
+    allow_credentials=False,     # Must be False when using allow_origins=["*"]
+    allow_methods=["*"],         # Allow all methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],         # Allow all headers
+    expose_headers=["*"],        # Expose all headers to frontend
 )
 
 # === LaTeX formatter for frontend KaTeX ===

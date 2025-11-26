@@ -42,12 +42,33 @@ async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<
     return data
   } catch (error: any) {
     clearTimeout(timeoutId)
+    
+    // Handle timeout
     if (error.name === 'AbortError') {
       throw new Error('Request timeout - the server is taking too long to respond. Please try again.')
     }
+    
+    // Handle network errors (CORS, connection refused, 502 Bad Gateway, etc.)
+    if (error.message && error.message.includes('Failed to fetch')) {
+      throw new Error('Unable to connect to the server. This could be due to CORS issues, server being down, or network problems. Please check if the backend is running and try again.')
+    }
+    
+    // Handle CORS errors specifically
+    if (error.message && error.message.includes('CORS')) {
+      throw new Error('CORS error: The server is not allowing requests from this origin. Please check backend CORS configuration.')
+    }
+    
+    // Handle 502 Bad Gateway
+    if (error.message && (error.message.includes('502') || error.message.includes('Bad Gateway'))) {
+      throw new Error('Server error (502 Bad Gateway): The backend server may be restarting or unavailable. Please try again in a moment.')
+    }
+    
+    // If error already has a message, use it
     if (error.message) {
       throw error
     }
+    
+    // Fallback
     throw new Error(error.toString() || 'Unknown error occurred')
   }
 }
