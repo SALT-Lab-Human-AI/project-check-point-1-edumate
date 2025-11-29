@@ -304,6 +304,9 @@ def generate_quiz_items(topic: str, grade: int, n: int = 5, difficulty: str = "m
     user = (
         f"Generate {n} multiple-choice questions for grade {grade} on '{topic}' ({difficulty}). "
         f"One correct answer (A-D). Include explanation.\n\n"
+        f"Return JSON with this exact structure:\n"
+        f'{{"items": [{{"id": "uuid", "question_md": "...", "choices": {{"A": "actual answer text", "B": "actual answer text", "C": "actual answer text", "D": "actual answer text"}}, "correct": "A", "explanation_md": "...", "skill_tag": "..."}}]}}\n\n'
+        f"IMPORTANT: The 'choices' field must have keys A, B, C, D with actual answer text (not 'Option A', 'Option B', etc.).\n\n"
         f"Context: {context}"
     )
 
