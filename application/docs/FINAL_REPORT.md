@@ -68,7 +68,9 @@ EduMate follows a three-tier architecture: a Next.js frontend, a FastAPI backend
 - `parent_student_links`: Manages parent-student relationships
 - `s1_sessions` and `s2_sessions`: Track practice and feedback sessions
 
-**Memory Optimization.** Given deployment constraints (Render free tier: 512MB RAM), EduMate implements aggressive memory optimization. The embedding model is lazy-loaded and can be unloaded after use. Quiz generation adapts its RAG retrieval strategy based on current memory usage: skipping RAG entirely above 480MB, using minimal RAG (2 documents, 1500 chars) above 450MB, and normal RAG (3 documents, 3000 chars) below 450MB. Memory tracking decorators monitor usage per feature, enabling proactive optimization.
+![Database Schema](supabase_database_schema.png)
+
+**Memory Optimization.** Given deployment constraints (Render free tier: 512MB RAM), EduMate implements aggressive memory optimization. The embedding model is lazy-loaded and can be unloaded after use. Quiz generation adapts its RAG retrieval strategy based on current memory usage: using minimal RAG (2 documents, 1500 chars) above 450MB, and normal RAG (3 documents, 3000 chars) below 450MB. Memory tracking decorators monitor usage per feature, enabling proactive optimization.
 
 ### 2.2 Core Learning Modules
 
@@ -79,6 +81,8 @@ EduMate follows a three-tier architecture: a Next.js frontend, a FastAPI backend
 **S3: Mathematical Quiz Generation.** Students select grade, topic, number of questions (3-15, parent-configurable), and difficulty (easy/medium/hard, parent-lockable). The system generates multiple-choice questions with four options (A-D), where distractors are designed to reflect common misconceptions. For example, a question on area calculation might include a distractor that forgets to divide by 2, or a fraction problem might include a distractor that adds numerators and denominators directly. Each question includes a detailed explanation for both correct and incorrect answers. Quizzes are auto-graded upon submission, with results tracked in the database for progress analysis.
 
 **Parent Dashboard.** Parents can view progress charts showing accuracy over time, topic-wise performance heatmaps, time-on-task metrics, and recent activity summaries. They can set daily goals (time spent, quizzes completed), lock difficulty levels, fix question counts, toggle direct answer access in S2, and enable/disable question generation in S1. The dashboard provides exportable progress reports in parent-friendly language, highlighting strengths, weaknesses, and recommendations.
+
+![Parent Dashboard](pdboard.png)
 
 ### 2.3 RAG Implementation Details
 

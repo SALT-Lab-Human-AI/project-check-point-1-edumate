@@ -100,32 +100,32 @@ export function NavBar() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-white border-b-2 border-primary shadow-sm">
-      <div className="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-8">
+      <div className="max-w-[1440px] mx-auto px-3 md:px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-4 md:gap-8">
           <Link
             href={user.role === "student" ? "/student" : "/parent"}
-            className="flex items-center gap-3 font-bold text-xl text-navy hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 md:gap-3 font-bold text-lg md:text-xl text-navy hover:opacity-80 transition-opacity"
           >
-            <img src="/logo.png" alt="EduMate Logo" className="w-10 h-10" />
+            <img src="/logo.png" alt="EduMate Logo" className="w-8 h-8 md:w-10 md:h-10" />
             <span>EduMate</span>
           </Link>
-          <span className="text-sm text-text/60">{getBreadcrumb()}</span>
+          <span className="text-xs md:text-sm text-text/60 hidden sm:inline">{getBreadcrumb()}</span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           {user.role === "student" && (
             <>
               {/* Daily Goals Section */}
-              <div className="flex items-center gap-3 px-3 py-1.5 bg-primary/5 rounded-lg border border-primary/20">
-                <Target className="w-4 h-4 text-primary" />
-                <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 lg:gap-3 px-2 lg:px-3 py-1.5 bg-primary/5 rounded-lg border border-primary/20">
+                <Target className="w-4 h-4 text-primary flex-shrink-0" />
+                <div className="flex flex-col lg:flex-row items-start lg:items-center gap-1.5 lg:gap-4">
                   {/* Time Goal */}
                   <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-text/60" />
-                    <span className="text-xs font-medium text-navy">
+                    <Clock className="w-3.5 h-3.5 text-text/60 flex-shrink-0" />
+                    <span className="text-xs font-medium text-navy whitespace-nowrap">
                       {formatTime(todayTotalTime)} / {formatTime(targetTime)}
                     </span>
-                    <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
                       <div 
                         className="h-full bg-primary transition-all"
                         style={{ 
@@ -137,11 +137,11 @@ export function NavBar() {
                   
                   {/* Quiz Goal */}
                   <div className="flex items-center gap-1.5">
-                    <Target className="w-3.5 h-3.5 text-text/60" />
-                    <span className="text-xs font-medium text-navy">
+                    <Target className="w-3.5 h-3.5 text-text/60 flex-shrink-0" />
+                    <span className="text-xs font-medium text-navy whitespace-nowrap">
                       {totalQuizzes} / {targetQuizzes} quizzes
                     </span>
-                    <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
                       <div 
                         className="h-full bg-leaf transition-all"
                         style={{ 
