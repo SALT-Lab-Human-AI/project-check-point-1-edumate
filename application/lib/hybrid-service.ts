@@ -818,19 +818,32 @@ export async function generateQuiz(payload: {
   return {
     id: `quiz-${Date.now()}`,
     title: `${payload.topic} Quiz`,
-    questions: response.items.map((item, index) => ({
-      id: item.id,
-      question: item.question_md,
-      options: [
-        { id: 'A', text: item.choices.A },
-        { id: 'B', text: item.choices.B },
-        { id: 'C', text: item.choices.C },
-        { id: 'D', text: item.choices.D },
-      ],
-      correctAnswer: item.correct,
-      explanation: item.explanation_md,
-      skillTag: item.skill_tag,
-    })),
+    questions: response.items.map((item, index) => {
+      // Ensure choices object exists and has all required keys
+      const choices = item.choices || {}
+      const options = [
+        { id: 'A', text: choices.A || choices.a || 'Option A' },
+        { id: 'B', text: choices.B || choices.b || 'Option B' },
+        { id: 'C', text: choices.C || choices.c || 'Option C' },
+        { id: 'D', text: choices.D || choices.d || 'Option D' },
+      ]
+      
+      console.log(`[QUIZ-TRANSFORM] Question ${index + 1}:`, {
+        id: item.id,
+        hasChoices: !!item.choices,
+        choices: item.choices,
+        options: options.map(o => ({ id: o.id, text: o.text.substring(0, 50) }))
+      })
+      
+      return {
+        id: item.id,
+        question: item.question_md || item.question || '',
+        options: options,
+        correctAnswer: item.correct || 'A',
+        explanation: item.explanation_md || item.explanation || '',
+        skillTag: item.skill_tag || item.skillTag || '',
+      }
+    }),
     meta: response.meta
   }
 }

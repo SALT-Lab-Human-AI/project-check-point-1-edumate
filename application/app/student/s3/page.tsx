@@ -147,6 +147,17 @@ export default function S3Page() {
         difficulty: actualDifficulty
       })
       
+      console.log('[S3] Quiz generated:', quiz)
+      console.log('[S3] Questions:', quiz.questions)
+      quiz.questions.forEach((q, i) => {
+        console.log(`[S3] Question ${i + 1}:`, {
+          id: q.id,
+          hasOptions: !!q.options,
+          optionsCount: q.options?.length || 0,
+          options: q.options
+        })
+      })
+      
       setQuizData(quiz)
       setSelectedAnswers({})
       setCurrentQuestion(0)
@@ -415,28 +426,37 @@ export default function S3Page() {
                     <MathRenderer>{currentQ.question}</MathRenderer>
                   </div>
 
-                  <RadioGroup value={selectedAnswer} onValueChange={(value) => handleAnswerSelect(value, validQuestionIndex)}>
-                    <div className="space-y-3">
-                      {currentQ.options?.map((option) => {
-                        const isSelected = selectedAnswer === option.id
+                  {currentQ.options && currentQ.options.length > 0 ? (
+                    <RadioGroup value={selectedAnswer} onValueChange={(value) => handleAnswerSelect(value, validQuestionIndex)}>
+                      <div className="space-y-3">
+                        {currentQ.options.map((option) => {
+                          const isSelected = selectedAnswer === option.id
 
-                        return (
-                          <div
-                            key={option.id}
-                            className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-colors ${
-                              isSelected ? "border-primary bg-primary/5" : "border-gray-line hover:border-primary/50"
-                            }`}
-                          >
-                            <RadioGroupItem value={option.id} id={option.id} />
-                            <Label htmlFor={option.id} className="flex-1 cursor-pointer">
-                              <span className="font-semibold mr-2">{option.id}.</span>
-                              <MathRenderer>{option.text}</MathRenderer>
-                            </Label>
-                          </div>
-                        )
-                      })}
+                          return (
+                            <div
+                              key={option.id}
+                              className={`flex items-start gap-3 p-4 rounded-lg border-2 transition-colors ${
+                                isSelected ? "border-primary bg-primary/5" : "border-gray-line hover:border-primary/50"
+                              }`}
+                            >
+                              <RadioGroupItem value={option.id} id={option.id} />
+                              <Label htmlFor={option.id} className="flex-1 cursor-pointer">
+                                <span className="font-semibold mr-2">{option.id}.</span>
+                                <MathRenderer>{option.text || `Option ${option.id}`}</MathRenderer>
+                              </Label>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    <div className="p-4 rounded-lg border-2 border-yellow bg-yellow/5">
+                      <p className="text-yellow">Error: No answer options available for this question. Please create a new quiz.</p>
+                      <Button onClick={() => setView("config")} className="mt-2" variant="outline">
+                        Create New Quiz
+                      </Button>
                     </div>
-                  </RadioGroup>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
