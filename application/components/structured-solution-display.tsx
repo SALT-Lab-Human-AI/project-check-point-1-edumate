@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Card } from "@/components/ui/card"
 import { ChevronDown, ChevronUp, Copy, Save } from "lucide-react"
 import { MathRenderer } from "@/components/math-renderer"
+import jsPDF from "jspdf"
 
 interface StructuredSolution {
   understandTheProblem: string
@@ -92,6 +93,85 @@ export function StructuredSolutionDisplay({ solution }: StructuredSolutionDispla
     setExpandedSections(newExpanded)
   }
 
+  const handleCopy = async () => {
+    try {
+      // Get the complete solution text
+      const fullSolution = solution
+      await navigator.clipboard.writeText(fullSolution)
+      // You could add a toast notification here if needed
+      alert("Solution copied to clipboard!")
+    } catch (err) {
+      console.error("Failed to copy:", err)
+      alert("Failed to copy solution. Please try again.")
+    }
+  }
+
+  const handleSave = () => {
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 20
+    const maxWidth = pageWidth - 2 * margin
+    let yPosition = margin
+
+    // Helper function to add text with word wrap
+    const addWrappedText = (text: string, fontSize: number, isBold: boolean = false) => {
+      doc.setFontSize(fontSize)
+      if (isBold) {
+        doc.setFont(undefined, "bold")
+      } else {
+        doc.setFont(undefined, "normal")
+      }
+      
+      // Remove markdown formatting for PDF
+      const cleanText = text
+        .replace(/\*\*/g, "")
+        .replace(/#{1,6}\s/g, "")
+        .replace(/`/g, "")
+        .replace(/\$([^$]+)\$/g, "$1") // Remove LaTeX delimiters
+      
+      const lines = doc.splitTextToSize(cleanText, maxWidth)
+      lines.forEach((line: string) => {
+        if (yPosition > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage()
+          yPosition = margin
+        }
+        doc.text(line, margin, yPosition)
+        yPosition += fontSize * 0.5
+      })
+      yPosition += 5
+    }
+
+    // Title
+    addWrappedText("Complete Solution", 18, true)
+    yPosition += 10
+
+    // Add each section
+    const sections = [
+      { title: "Understand the Problem", content: parsedSolution.understandTheProblem },
+      { title: "Strategy", content: parsedSolution.strategy },
+      { title: "Step-by-Step Solution", content: parsedSolution.stepByStepSolution },
+      { title: "Verify the Answer", content: parsedSolution.verifyTheAnswer },
+      { title: "Alternate Methods", content: parsedSolution.alternateMethods }
+    ]
+
+    sections.forEach((section) => {
+      if (section.content && section.content.trim()) {
+        addWrappedText(section.title, 14, true)
+        yPosition += 3
+        addWrappedText(section.content, 11)
+        yPosition += 10
+      }
+    })
+
+    // If no structured sections, add the raw solution
+    if (!sections.some(s => s.content && s.content.trim())) {
+      addWrappedText(solution, 11)
+    }
+
+    // Save PDF
+    doc.save(`solution-${Date.now()}.pdf`)
+  }
+
   const sections = [
     {
       key: 'understandTheProblem',
@@ -134,12 +214,18 @@ export function StructuredSolutionDisplay({ solution }: StructuredSolutionDispla
           <p className="text-gray-600 mt-1">Step-by-step guided solution</p>
         </div>
         <div className="flex gap-2">
-          <button className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
-            <Copy className="w-4 h-4 mr-2 inline" />
+          <button 
+            onClick={handleCopy}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 flex items-center"
+          >
+            <Copy className="w-4 h-4 mr-2" />
             Copy
           </button>
-          <button className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200">
-            <Save className="w-4 h-4 mr-2 inline" />
+          <button 
+            onClick={handleSave}
+            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 flex items-center"
+          >
+            <Save className="w-4 h-4 mr-2" />
             Save
           </button>
         </div>

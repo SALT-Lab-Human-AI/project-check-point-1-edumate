@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, XCircle, Download, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
+import { XCircle, Download, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 import { submitS2, getTopics, generateQuestion } from "@/lib/hybrid-service"
 import { MathRenderer } from "@/components/math-renderer"
 import { FeedbackDisplay } from "@/components/feedback-display"
 import { useTimeTracking } from "@/lib/use-time-tracking"
 import { useMemoryTracking } from "@/lib/memory-tracker"
 import { useApp } from "@/store/app-context"
+import jsPDF from "jspdf"
 
 interface FeedbackData {
   feedback: string
@@ -132,6 +133,107 @@ export default function S2Page() {
     setError(null)
   }
 
+  const handleExportPDF = () => {
+    if (!feedbackData) return
+
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 20
+    const maxWidth = pageWidth - 2 * margin
+    let yPosition = margin
+
+    // Helper function to add text with word wrap
+    const addWrappedText = (text: string, fontSize: number, isBold: boolean = false) => {
+      doc.setFontSize(fontSize)
+      if (isBold) {
+        doc.setFont(undefined, "bold")
+      } else {
+        doc.setFont(undefined, "normal")
+      }
+      
+      const lines = doc.splitTextToSize(text, maxWidth)
+      lines.forEach((line: string) => {
+        if (yPosition > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage()
+          yPosition = margin
+        }
+        doc.text(line, margin, yPosition)
+        yPosition += fontSize * 0.5
+      })
+      yPosition += 5
+    }
+
+    // Title
+    addWrappedText("Feedback Results", 18, true)
+    yPosition += 5
+
+    // Score
+    addWrappedText(`Score: ${feedbackData.score}%`, 14, true)
+    yPosition += 5
+
+    // Status
+    const status = feedbackData.isCorrect ? "Excellent Work!" : "Good Effort!"
+    addWrappedText(status, 14, true)
+    yPosition += 5
+
+    // Encouragement/Feedback
+    if (feedbackData.encouragement) {
+      addWrappedText(feedbackData.encouragement, 12)
+    } else if (feedbackData.feedback) {
+      addWrappedText(feedbackData.feedback, 12)
+    }
+    yPosition += 10
+
+    // Detailed Feedback
+    if (feedbackData.feedback) {
+      addWrappedText("Detailed Feedback:", 14, true)
+      yPosition += 5
+      // Remove markdown formatting for PDF
+      const cleanFeedback = feedbackData.feedback
+        .replace(/\*\*/g, "")
+        .replace(/#{1,6}\s/g, "")
+        .replace(/`/g, "")
+      addWrappedText(cleanFeedback, 11)
+      yPosition += 10
+    }
+
+    // Error Analysis
+    if (feedbackData.errors && feedbackData.errors.length > 0) {
+      addWrappedText("Error Analysis:", 14, true)
+      yPosition += 5
+      feedbackData.errors.forEach((error, index) => {
+        addWrappedText(`${index + 1}. ${error.issue}`, 12, true)
+        yPosition += 3
+        addWrappedText(`Code: ${error.snippet}`, 10)
+        yPosition += 3
+        addWrappedText(`Hint: ${error.hint}`, 10)
+        yPosition += 5
+      })
+    }
+
+    // Suggestions
+    if (feedbackData.suggestions && feedbackData.suggestions.length > 0) {
+      addWrappedText("Suggestions for Improvement:", 14, true)
+      yPosition += 5
+      feedbackData.suggestions.forEach((suggestion, index) => {
+        addWrappedText(`${index + 1}. ${suggestion}`, 11)
+      })
+    }
+
+    // Question and Solution
+    yPosition += 10
+    addWrappedText("Question:", 14, true)
+    yPosition += 3
+    addWrappedText(question, 11)
+    yPosition += 5
+    addWrappedText("Your Solution:", 14, true)
+    yPosition += 3
+    addWrappedText(solution, 11)
+
+    // Save PDF
+    doc.save(`feedback-${Date.now()}.pdf`)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <NavBar />
@@ -155,10 +257,6 @@ export default function S2Page() {
               <Card className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <Label className="text-lg font-bold text-navy">Question</Label>
-                  <Button variant="outline" size="sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload
-                  </Button>
                 </div>
                 
                 {/* Grade and Topic Selection - Merged into Question card */}
@@ -211,10 +309,6 @@ export default function S2Page() {
               <Card className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <Label className="text-lg font-bold text-navy">Your Solution</Label>
-                  <Button variant="outline" size="sm">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload
-                  </Button>
                 </div>
                 <Textarea 
                   placeholder="Type or upload your solution..." 
@@ -295,13 +389,13 @@ export default function S2Page() {
         ) : (
           /* Feedback Display */
           <Card className="p-8">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <h2 className="text-2xl font-bold text-navy">Feedback Results</h2>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={resetForm}>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="outline" onClick={resetForm} className="flex-1 sm:flex-initial">
                   New Analysis
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handleExportPDF} className="flex-1 sm:flex-initial">
                   <Download className="w-4 h-4 mr-2" />
                   Export
                 </Button>
