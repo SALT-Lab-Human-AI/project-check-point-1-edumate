@@ -12,38 +12,182 @@
 **R**etrieval-**A**ugmented **G**eneration  
 **Tutor • Quiz • Parent Dashboard**
 
-**Deployed URL: https://project-check-point-1-edumate.vercel.app/login**
+**[🚀 Live Demo](https://project-check-point-1-edumate.vercel.app/login)** | **[📖 Documentation](./docs/FINAL_REPORT.md)** | **[🔧 Installation Guide](./application/INSTALL.md)**
 
 *Making learning addictive — the right way.*
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-red?style=for-the-badge)](#)
+[![Next.js](https://img.shields.io/badge/Next.js-15.2-black?logo=next.js&logoColor=white&style=for-the-badge)](#)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white&style=for-the-badge)](#)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009485?logo=fastapi&logoColor=white&style=for-the-badge)](#)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white&style=for-the-badge)](#)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?logo=postgresql&logoColor=white&style=for-the-badge)](#)
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-121212?style=for-the-badge)](#)
-[![ChatGPT](https://img.shields.io/badge/ChatGPT-00A67E?style=for-the-badge&logo=openai&logoColor=white)](https://chat.openai.com/)
-[![React](https://img.shields.io/badge/React-20232a?logo=react&logoColor=61DAFB&style=for-the-badge)](#)
+[![Groq](https://img.shields.io/badge/Groq-FF6B6B?style=for-the-badge)](#)
 
 </div>
+
+---
+
+## 🌐 Deployed Application
+
+**🔗 Live URL:** [https://project-check-point-1-edumate.vercel.app/login](https://project-check-point-1-edumate.vercel.app/login)
+
+The application is fully deployed and ready to use. You can create an account and start exploring the features immediately!
 
 ---
 
 ## 📑 Table of Contents
 1. [Problem Statement and Why It Matters](#-problem-statement-and-why-it-matters)  
 2. [Target Users and Core Tasks](#-target-users-and-core-tasks)  
-3. [Competitive Landscape & AI Limitations](#-competitive-landscape--ai-limitations)  
-4. [Literature Review](#-literature-review)  
-5. [Initial Concept and Value Proposition](#-initial-concept-and-value-proposition)  
-6. [Workflow Overview](#-workflow-overview)  
-7. [Architecture Overview](#-architecture-overview)  
-8. [License](#-license)
+3. [Key Features](#-key-features)  
+4. [Tech Stack](#-tech-stack)  
+5. [Quick Start](#-quick-start)  
+6. [Competitive Landscape & AI Limitations](#-competitive-landscape--ai-limitations)  
+7. [Literature Review](#-literature-review)  
+8. [Initial Concept and Value Proposition](#-initial-concept-and-value-proposition)  
+9. [Workflow Overview](#-workflow-overview)  
+10. [Architecture Overview](#-architecture-overview)  
+11. [Project Structure](#-project-structure)  
+12. [Documentation](#-documentation)  
+13. [License](#-license)
 
 ---
 
 ## 🆘 Problem Statement and Why It Matters
-Students need **instant, reliable, grade-level help** outside class. Generic chatbots hallucinate and aren’t aligned to standards; parents rarely see **which skills improved** and **where their child struggles**.  
+Students need **instant, reliable, grade-level help** outside class. Generic chatbots hallucinate and aren't aligned to standards; parents rarely see **which skills improved** and **where their child struggles**.  
 **EduMate** is a **RAG-grounded** tutor + quiz system that:
 - explains **with LaTeX and examples**,
 - generates **curriculum-aligned quizzes** with **auto-grading + rationales**, and
 - provides a **Parent Dashboard** with **trends, gaps, and recommendations**.
+
+---
+
+## ✨ Key Features
+
+### 🎓 Three Core Learning Modules
+
+1. **S1: Structured Problem-Solving Practice**
+   - Grade and topic selectors (1-12)
+   - AI-generated or custom questions
+   - Phased solutions: Understand → Strategy → Step-by-step LaTeX → Verify → Alternates
+   - Interactive learning with guided hints
+
+2. **S2: AI-Powered Solution Feedback**
+   - Text or file uploads with OCR preview
+   - "Hints-first" mode or Direct Answer (parent-controlled)
+   - Error annotations and fix-it tips
+   - Precise guidance on mistakes
+
+3. **S3: Mathematical Quiz Generation**
+   - Grade-aware topic selection
+   - Misconception-based distractors
+   - Optional "Check Answer" feature
+   - Detailed results and explanations
+   - Progress tracking with visual indicators
+
+### 👨‍👩‍👧 Parent Dashboard
+- **Progress Analytics:** Accuracy over time, topic heatmap, time-on-task
+- **Control Settings:** Toggle Direct Answer, fix question count, lock difficulty, set daily goals
+- **Activity Tracking:** Recent activity logs and exportable summaries
+- **Recommendations:** AI-powered insights on student strengths and areas for improvement
+
+### 🔒 Academic Integrity Features
+- Parent-controlled Direct Answer mode
+- Question generation permissions
+- Difficulty locking
+- Daily goal settings
+- Transparent progress reporting
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework:** Next.js 15.2 (React 18)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **UI Components:** Radix UI, shadcn/ui
+- **Math Rendering:** KaTeX for LaTeX
+- **Charts:** Recharts
+- **Testing:** Playwright (E2E)
+
+### Backend
+- **Framework:** FastAPI (Python 3.8+)
+- **LLM:** Groq (GPT-OSS-20B)
+- **Vector Database:** ChromaDB (DuckDB + Parquet)
+- **Embeddings:** SentenceTransformers
+- **Database:** PostgreSQL with pgvector extension
+- **API:** RESTful architecture
+
+### Infrastructure
+- **Frontend Deployment:** Vercel
+- **Backend Deployment:** Render
+- **Database:** Supabase (PostgreSQL) or local PostgreSQL
+- **Vector Storage:** Local ChromaDB with persistent storage
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js (v18 or higher)
+- Python (v3.8 or higher)
+- PostgreSQL (v12 or higher) or Supabase account
+- Groq API key ([Get one here](https://console.groq.com/))
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd project-check-point-1-edumate/application
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   cp env.example .env
+   # Edit .env and add your API keys
+   ```
+
+3. **Install dependencies**
+   ```bash
+   # Frontend
+   npm install
+   
+   # Backend
+   python -m venv venv
+   source venv/bin/activate  # macOS/Linux
+   # or venv\Scripts\activate  # Windows
+   pip install -r requirements.txt
+   ```
+
+4. **Set up database**
+   - Create a PostgreSQL database (or use Supabase)
+   - Enable pgvector extension: `CREATE EXTENSION IF NOT EXISTS vector;`
+   - Update `DATABASE_URL` in `.env`
+
+5. **Initialize ChromaDB**
+   ```bash
+   python backend/setup_chroma.py
+   ```
+
+6. **Run the application**
+   ```bash
+   # Option 1: Use the start script
+   chmod +x start.sh
+   ./start.sh
+   
+   # Option 2: Use npm
+   npm run dev:full
+   ```
+
+7. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs
+
+For detailed installation instructions, see [INSTALL.md](./application/INSTALL.md).
 
 ---
 
@@ -184,6 +328,137 @@ Both paths leverage the RAG (Retrieval-Augmented Generation) pipeline for accura
 - `Attempt(student_id, item_id, selected, is_correct, ts)`  
 - `QuizItem(id, topic, grade, skill_tag, choices{A..D}, correct)`  
 - `SessionLog(student_id, minutes, date)`
+
+---
+
+## 📁 Project Structure
+
+```
+project-check-point-1-edumate/
+├── application/                 # Main application directory
+│   ├── app/                    # Next.js app directory
+│   │   ├── login/              # Login page
+│   │   ├── student/            # Student dashboard and modules
+│   │   ├── parent/             # Parent dashboard
+│   │   └── profile/            # User profile
+│   ├── backend/                # FastAPI backend
+│   │   ├── main.py             # FastAPI application
+│   │   ├── database.py         # Database models and operations
+│   │   ├── rag_groq_bot.py     # RAG pipeline implementation
+│   │   ├── quiz_gen.py         # Quiz generation logic
+│   │   └── setup_chroma.py     # ChromaDB initialization
+│   ├── components/             # React components
+│   │   ├── ui/                 # shadcn/ui components
+│   │   ├── math-renderer.tsx   # LaTeX math renderer
+│   │   └── feedback-display.tsx # Solution feedback UI
+│   ├── lib/                    # Utility libraries
+│   │   ├── api-service.ts      # API client
+│   │   └── hybrid-service.ts   # Hybrid RAG service
+│   ├── data/                   # Dataset files
+│   │   ├── test.jsonl          # K-12 mathematics dataset
+│   │   └── test_without_grade1.jsonl
+│   ├── e2e/                    # End-to-end tests
+│   ├── chroma_db/              # ChromaDB storage
+│   └── INSTALL.md              # Installation guide
+├── docs/                       # Documentation
+│   ├── FINAL_REPORT.md         # Comprehensive project report
+│   ├── prompts.md              # Prompt engineering documentation
+│   ├── Architecture/           # Architecture diagrams
+│   └── images/                 # Screenshots and diagrams
+├── artifact/                   # Artifact package
+│   ├── ARTIFACT.md             # Main artifact documentation
+│   ├── CONFIGURATION.md        # Configuration guide
+│   ├── DATA_ACCESS.md          # Data access instructions
+│   └── prompts/                # Extracted prompt files
+└── README.md                   # This file
+```
+
+---
+
+## 📚 Documentation
+
+### Core Documentation
+- **[Final Report](./docs/FINAL_REPORT.md)** - Comprehensive project documentation including methodology, evaluation, and results
+- **[Installation Guide](./application/INSTALL.md)** - Detailed setup instructions
+- **[Prompt Documentation](./docs/prompts.md)** - RAG and quiz generation prompts
+
+### Artifact Package
+- **[Artifact Summary](./artifact/ARTIFACT_SUMMARY.md)** - Overview of artifact package contents
+- **[Configuration Guide](./artifact/CONFIGURATION.md)** - Environment and deployment configuration
+- **[Data Access](./artifact/DATA_ACCESS.md)** - Dataset access and usage instructions
+
+### Architecture & Design
+- **[Architecture Diagrams](./docs/Architecture/)** - System architecture and flow diagrams
+- **[Design Specification](./DESIGN_SPEC.md)** - Detailed design specifications
+
+### Testing
+- **[E2E Tests](./application/e2e/)** - Playwright end-to-end test suites
+- Test coverage for authentication, student modules, and parent dashboard
+
+### Additional Resources
+- **Literature Review:** See `literature/` directory for research papers
+- **Validation:** See `validation/` directory for user validation results
+- **Proposal:** See `proposal/` directory for initial project proposal
+
+---
+
+## 🧪 Testing
+
+### End-to-End Tests
+```bash
+# Run all E2E tests
+npm run test:e2e
+
+# Run with UI
+npm run test:e2e:ui
+
+# Run in headed mode
+npm run test:e2e:headed
+```
+
+### Test Coverage
+- Authentication flow
+- Student dashboard navigation
+- S1, S2, S3 module functionality
+- Parent dashboard features
+
+---
+
+## 📊 Evaluation Results
+
+### Comparative Evaluation
+- **ChatGPT (GPT-5):** 24/25 on comprehensive rubric
+- **Gemini (2.5 Pro):** 22/25
+- **Perplexity (SONAR):** 17/25
+
+### User Survey (N=5)
+- **Overall Ease of Use:** 100% "Useful" or "Very useful"
+- **Student Dashboard:** 100% "Very useful"
+- **S1 & S2 Modules:** 100% "Useful" or "Very useful"
+- **Primary Improvement:** Load speed optimization
+
+### System Performance
+- **API Response Times:**
+  - Tutoring: 1-2 seconds
+  - Quiz Generation: 2-3 seconds
+  - Quiz Grading: <100ms
+- **Vector Search:** 15-50ms
+- **Error Rates:** <2%
+
+For detailed evaluation results, see [FINAL_REPORT.md](./docs/FINAL_REPORT.md).
+
+---
+
+## 🤝 Contributing
+
+This is a research project, but contributions and feedback are welcome! If you'd like to contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
 
 ## 📝 License
 

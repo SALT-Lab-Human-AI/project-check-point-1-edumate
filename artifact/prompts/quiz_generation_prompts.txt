@@ -1,0 +1,140 @@
+# Quiz Generation System Prompts
+# Location: application/backend/quiz_gen.py
+
+## System Prompt (Lines 232-241)
+
+```
+You are an expert K-12 quiz writer. {grade_hint} Use ONLY the provided context to avoid errors. For math, use LaTeX $$...$$ (block) and \\(...\\) (inline). IMPORTANT: Use correct LaTeX syntax. For \\begin{{aligned}}...\\end{{aligned}}, use \\end{{aligned}} NOT $\\end${{aligned}} or \\end${{aligned}}. Never use $ signs inside \\begin or \\end commands. Use proper LaTeX syntax only. Return STRICT JSON ONLY. Do not include backticks or extra prose. The root must be an object with an 'items' array.
+```
+
+## User Prompt (Lines 242-272)
+
+```
+Generate exactly {n} multiple-choice questions for grade {grade} on the topic "{topic}" at {difficulty} difficulty.
+Each item must be solvable for that grade. Make choices plausible; only one correct option (A–D). Include a short explanation.
+
+LATEX FORMATTING RULES:
+- For block math (equations, systems), use: $$\\begin{{aligned}}...\\end{{aligned}}$$
+- For inline math, use: \\(...\\)
+- NEVER use $ signs inside \\begin or \\end commands
+- Use correct LaTeX syntax: \\end{{aligned}} NOT $\\end${{aligned}} or \\end${{aligned}}
+- For systems of equations, use: $$\\begin{{cases}}...\\end{{cases}}$$
+- For line breaks in cases/aligned environments, use \\\\ (double backslash) NOT || (double pipe)
+- Example: $$\\begin{{cases}}x+y=5\\\\x-y=3\\end{{cases}}$$ NOT $$\\begin{{cases}}x+y=5||x-y=3\\end{{cases}}$$
+- Always use proper LaTeX syntax with correct escaping
+
+Return a JSON object exactly:
+{{
+  "items": [
+    {{
+      "id": "uuid",
+      "question_md": "markdown with LaTeX if needed",
+      "choices": {{"A":"...", "B":"...", "C":"...", "D":"..."}},
+      "correct": "A",
+      "explanation_md": "markdown with LaTeX if needed",
+      "skill_tag": "e.g., linear_equations"
+    }}
+  ]
+}}
+
+CONTEXT:
+{context}
+```
+
+## Grade Hints (Same as RAG Tutor)
+
+### Grades ≤2
+```
+Provide a very simple explanation suitable for young children.
+```
+
+### Grades 3-5
+```
+Explain with simple examples and easy-to-understand language.
+```
+
+### Grades 6-8
+```
+Use clear examples and some intermediate-level explanations.
+```
+
+### Grades 9-12
+```
+Provide detailed explanation suitable for high school students.
+```
+
+### Grades >12
+```
+Provide a detailed explanation suitable for advanced learners.
+```
+
+## Model Configuration
+
+- **Model:** `openai/gpt-oss-20b` (Groq)
+- **Temperature:** 0.1 (low for consistency)
+- **Max Tokens:** 3500
+- **Response Format:** `{"type": "json_object"}` (enforces JSON output)
+
+## Context Retrieval
+
+- Uses cosine similarity search on `k12_content` table
+- Retrieves top 12 documents for quiz generation (normal mode)
+- Adaptive retrieval based on memory:
+  - Minimal mode (memory > 450MB): 2 documents, 1500 chars
+  - Normal mode (memory ≤ 450MB): 12 documents, 3000 chars
+- Falls back to topic description if RAG unavailable
+
+## Example Usage
+
+**System:**
+```
+You are an expert K-12 quiz writer. Use clear examples and some intermediate-level explanations. Use ONLY the provided context to avoid errors. For math, use LaTeX $$...$$ (block) and \(...\) (inline). IMPORTANT: Use correct LaTeX syntax. For \begin{aligned}...\end{aligned}, use \end{aligned} NOT $\end${aligned} or \end${aligned}. Never use $ signs inside \begin or \end commands. Use proper LaTeX syntax only. Return STRICT JSON ONLY. Do not include backticks or extra prose. The root must be an object with an 'items' array.
+```
+
+**User:**
+```
+Generate exactly 5 multiple-choice questions for grade 7 on the topic "Linear Equations" at medium difficulty.
+Each item must be solvable for that grade. Make choices plausible; only one correct option (A–D). Include a short explanation.
+
+[... LaTeX formatting rules ...]
+
+Return a JSON object exactly:
+{
+  "items": [
+    {
+      "id": "uuid",
+      "question_md": "markdown with LaTeX if needed",
+      "choices": {"A":"...", "B":"...", "C":"...", "D":"..."},
+      "correct": "A",
+      "explanation_md": "markdown with LaTeX if needed",
+      "skill_tag": "e.g., linear_equations"
+    }
+  ]
+}
+
+CONTEXT:
+[Retrieved relevant content from vector database...]
+```
+
+## Expected Output Format
+
+```json
+{
+  "items": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "question_md": "Solve for x: $$2x + 5 = 13$$",
+      "choices": {
+        "A": "x = 4",
+        "B": "x = 9",
+        "C": "x = 3",
+        "D": "x = 8"
+      },
+      "correct": "A",
+      "explanation_md": "To solve $$2x + 5 = 13$$, subtract 5 from both sides: $$2x = 8$$. Then divide by 2: $$x = 4$$.",
+      "skill_tag": "linear_equations"
+    }
+  ]
+}
+```
+

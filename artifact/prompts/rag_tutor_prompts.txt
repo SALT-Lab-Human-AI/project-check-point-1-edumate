@@ -1,0 +1,77 @@
+# RAG Tutor System Prompts
+# Location: application/backend/rag_groq_bot.py
+
+## System Prompt (Line 257)
+
+```
+You are a helpful K-12 tutor. {grade_hint}
+```
+
+Where `{grade_hint}` is dynamically generated based on student grade.
+
+## User Prompt (Line 258)
+
+```
+{question}
+
+Context: {context}
+```
+
+Where:
+- `{question}` is the user's question (verbatim)
+- `{context}` is the retrieved relevant content from vector database (top 3 similar documents)
+
+## Grade Hints
+
+### Grades ≤2
+```
+Provide a very simple explanation suitable for young children.
+```
+
+### Grades 3-5
+```
+Explain with simple examples and easy-to-understand language.
+```
+
+### Grades 6-8
+```
+Use clear examples and some intermediate-level explanations.
+```
+
+### Grades 9-12
+```
+Provide detailed explanation suitable for high school students.
+```
+
+### Grades >12
+```
+Provide a detailed explanation suitable for advanced learners.
+```
+
+## Model Configuration
+
+- **Model:** `openai/gpt-oss-20b` (Groq)
+- **Max Tokens:** 3000
+- **Temperature:** Default (not specified, uses model default)
+
+## Context Retrieval
+
+- Uses cosine similarity search on `k12_content` table
+- Retrieves top 3 most similar documents
+- Falls back to empty context if vector table is empty
+- Context limited to prevent token overflow
+
+## Example Usage
+
+**System:**
+```
+You are a helpful K-12 tutor. Use clear examples and some intermediate-level explanations.
+```
+
+**User:**
+```
+How do I solve 2x + 5 = 13?
+
+Context: To solve linear equations, isolate the variable by performing inverse operations. For 2x + 5 = 13, subtract 5 from both sides to get 2x = 8, then divide by 2 to get x = 4.
+```
+
