@@ -10,8 +10,6 @@ K-12 mathematics education faces critical challenges: generic AI assistants freq
 
 **Keywords:** Intelligent Tutoring Systems, Retrieval-Augmented Generation, K-12 Education, Mathematics Learning, AI-Powered Tutoring, Vector Databases, Educational Technology
 
-**CCS Concepts:** • Applied computing → Computer-assisted instruction; Interactive learning environments • Information systems → Information retrieval; Search engines • Human-centered computing → Interactive systems and tools
-
 * * *
 
 ## 1 Introduction
@@ -22,7 +20,7 @@ The problem is particularly acute in mathematics education, where students requi
 
 EduMate addresses these limitations by integrating Retrieval-Augmented Generation (RAG) with a structured, multi-module learning system. Unlike generic chatbots, EduMate grounds all responses in a curated K-12 knowledge base, ensuring curriculum alignment and reducing hallucinations. The system provides three distinct learning pathways: structured problem-solving practice that guides students through understanding, strategy, execution, verification, and alternative methods; AI-powered solution feedback that analyzes student work and provides corrective guidance; and adaptive quiz generation that creates grade-appropriate questions with misconception-based distractors.
 
-This paper makes the following contributions:
+This report makes the following contributions:
 
 *   **Technical Contribution:** We present a production-ready RAG architecture for educational AI that combines vector similarity search with grade-adaptive prompting, enabling curriculum-aligned responses while maintaining memory efficiency on resource-constrained deployments (512MB RAM).
 
@@ -531,7 +529,7 @@ The parent dashboard and learning controls were also well-received, with all res
 
 ## 8 Conclusion
 
-This paper presented EduMate, a RAG-powered intelligent tutoring system for K-12 mathematics education. The system successfully combines retrieval-augmented generation with structured learning modules, demonstrating that RAG can enhance the reliability and pedagogical effectiveness of AI tutoring systems.
+This report presented EduMate, a RAG-powered intelligent tutoring system for K-12 mathematics education. The system successfully combines retrieval-augmented generation with structured learning modules, demonstrating that RAG can enhance the reliability and pedagogical effectiveness of AI tutoring systems.
 
 Key contributions include: (1) a production-ready architecture integrating RAG with multi-module learning workflows, (2) memory-optimized implementation strategies for resource-constrained deployments, (3) grade-adaptive tutoring that automatically adjusts language complexity and explanation depth, (4) comprehensive evaluation comparing baseline AI tools using a rigorous rubric, and (5) user survey results showing strong usability and effectiveness ratings.
 
