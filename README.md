@@ -14,6 +14,7 @@
 
 **[🚀 Live Demo](https://project-check-point-1-edumate.vercel.app/login)** | **[📖 Documentation](./docs/FINAL_REPORT.md)** | **[🔧 Installation Guide](./application/INSTALL.md)**
 
+
 *Making learning addictive — the right way.*
 
 [![License](https://img.shields.io/badge/license-Apache_2.0-red?style=for-the-badge)](#)
@@ -33,6 +34,7 @@
 
 **🔗 Live URL:** [https://project-check-point-1-edumate.vercel.app/login](https://project-check-point-1-edumate.vercel.app/login)
 
+[Checkout My Presentation Slides For CheckPoint 4!](https://www.canva.com/design/DAG6nUNJgcg/Hk1e4Gk30-PhYUoaZXebiA/edit?utm_content=DAG6nUNJgcg&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
 The application is fully deployed and ready to use. You can create an account and start exploring the features immediately!
 
 ---
