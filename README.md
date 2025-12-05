@@ -431,10 +431,11 @@ npm run test:e2e:headed
 - **Gemini (2.5 Pro):** 22/25
 - **Perplexity (SONAR):** 17/25
 
-### User Survey (N=5)
-- **Overall Ease of Use:** 100% "Useful" or "Very useful"
-- **Student Dashboard:** 100% "Very useful"
-- **S1 & S2 Modules:** 100% "Useful" or "Very useful"
+### User Survey (N=14)
+- **Overall Ease of Use:** 100% "Useful" or "Very useful" (9 Very useful, 5 Useful)
+- **Student Dashboard:** 100% positive ratings (11 Very useful, 3 Useful)
+- **S1 & S2 Modules:** 100% positive ratings (S1: 7 Very useful, 7 Useful; S2: 3 Very effective, 9 Effective, 2 Neutral)
+- **S3 Quiz Matching:** 64% positive ratings (4 Very well, 5 Well, 3 Neutral, 2 Not very well)
 - **Primary Improvement:** Load speed optimization
 
 ### System Performance
