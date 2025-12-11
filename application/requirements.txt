@@ -1,0 +1,25 @@
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Data Validation
+pydantic
+
+# Environment Variables
+python-dotenv
+
+# Database
+psycopg2-binary
+
+# ML/AI
+groq
+sentence-transformers
+numpy
+
+# Data Processing
+tqdm
+
+# Utilities
+requests
+psutil
