@@ -6,7 +6,7 @@
 
 ## Abstract
 
-K-12 mathematics education faces critical challenges: generic AI assistants frequently hallucinate incorrect information, lack curriculum alignment, provide inconsistent responses, and fail to adapt appropriately to different grade levels. While large language models (LLMs) demonstrate remarkable capabilities, they suffer from fundamental limitations when applied to educational contexts—skipping critical reasoning steps, providing answers without teaching, and failing to identify common misconceptions. We present EduMate, a Retrieval-Augmented Generation (RAG)-powered intelligent tutoring system that addresses these limitations by grounding all responses in a curated K-12 knowledge base. EduMate combines three core learning modules—structured problem-solving practice (S1), AI-powered solution feedback (S2), and adaptive quiz generation (S3)—with a parent dashboard for progress monitoring. Built on a FastAPI backend with PostgreSQL vector storage and Groq's GPT-OSS-20B model, the system uses RAG to ensure curriculum alignment and reduce hallucinations while maintaining memory efficiency on resource-constrained deployments (512MB RAM). Evaluation against baseline AI tools (ChatGPT GPT-5, Gemini 2.5 Pro, Perplexity SONAR) demonstrates superior consistency and educational quality, with ChatGPT scoring 24/25 on a comprehensive rubric assessing mathematical accuracy, grade appropriateness, educational quality, consistency, and safety filtering. User survey results (N=14, comprising 9 students and 5 parents) show strong usability ratings, with all respondents finding the system "Useful" or "Very useful" for overall ease of use, achieving 100% positive ratings on key dimensions including overall ease of use, student dashboard clarity, and parent dashboard usefulness. These findings demonstrate that RAG-enhanced tutoring systems can substantially improve the reliability and pedagogical effectiveness of AI-powered education.
+K-12 mathematics education faces critical challenges: generic AI assistants frequently hallucinate incorrect information, lack curriculum alignment, provide inconsistent responses, and fail to adapt appropriately to different grade levels. While large language models (LLMs) demonstrate remarkable capabilities, they suffer from fundamental limitations when applied to educational contexts—skipping critical reasoning steps, providing answers without teaching, and failing to identify common misconceptions. We present EduMate, a Retrieval-Augmented Generation (RAG)-powered intelligent tutoring system that addresses these limitations by grounding all responses in a curated K-12 knowledge base. EduMate combines three core learning modules—structured problem-solving practice (S1), AI-powered solution feedback (S2), and adaptive quiz generation (S3)—with a parent dashboard for progress monitoring. Built on a FastAPI backend with PostgreSQL vector storage and Groq's GPT-OSS-20B model, the system uses RAG to ensure curriculum alignment and reduce hallucinations while maintaining memory efficiency on resource-constrained deployments (512MB RAM). Evaluation against baseline AI tools (ChatGPT GPT-5, Gemini 2.5 Pro, Perplexity SONAR) demonstrates superior consistency and educational quality, with ChatGPT scoring 24/25 on a comprehensive rubric assessing mathematical accuracy, grade appropriateness, educational quality, consistency, and safety filtering. User survey results (N=5) show strong usability ratings, with all respondents finding the system "Useful" or "Very useful" for overall ease of use. These findings demonstrate that RAG-enhanced tutoring systems can substantially improve the reliability and pedagogical effectiveness of AI-powered education.
 
 **Keywords:** Intelligent Tutoring Systems, Retrieval-Augmented Generation, K-12 Education, Mathematics Learning, AI-Powered Tutoring, Vector Databases, Educational Technology
 
@@ -26,7 +26,7 @@ This report makes the following contributions:
 
 *   **Design Contribution:** We introduce a multi-module learning system (S1, S2, S3) that provides structured learning pathways, parent-controlled academic integrity features, and transparent progress tracking, demonstrating how RAG can be integrated into comprehensive tutoring workflows.
 
-*   **Empirical Contribution:** We report results from a comparative evaluation of baseline AI tools (ChatGPT, Gemini, Perplexity) using a rigorous rubric, and user survey feedback (N=14) showing strong usability and effectiveness ratings, providing evidence that RAG grounding improves consistency and educational quality.
+*   **Empirical Contribution:** We report results from a comparative evaluation of baseline AI tools (ChatGPT, Gemini, Perplexity) using a rigorous rubric, and user survey feedback (N=5) showing strong usability and effectiveness ratings, providing evidence that RAG grounding improves consistency and educational quality.
 
 *   **Implementation Contribution:** We demonstrate memory-optimized deployment strategies that enable sophisticated AI tutoring on free-tier infrastructure, including adaptive RAG retrieval, lazy model loading, and dynamic resource management.
 
@@ -105,7 +105,7 @@ EduMate was designed for K-12 mathematics education, serving students in grades 
 | High schoolers (9-12) | Advanced problem-solving, exam prep | Detailed explanations, alternative methods, comprehensive quiz generation |
 | Parents | Monitor progress, ensure academic integrity | Progress dashboards, goal setting, learning controls (direct answers, difficulty locks) |
 
-![user journey](images/user_journey.png)
+**[SCREENSHOT SUGGESTION: Add a user journey diagram showing how different user types interact with the system, or screenshots of the student dashboard and parent dashboard side-by-side]**
 
 ### 3.2 Theoretical Framework
 
@@ -129,7 +129,7 @@ EduMate consists of five primary components:
 4. **Memory Management System:** Adaptive resource optimization for constrained deployments
 5. **Database Layer:** PostgreSQL with pgvector for vector similarity search
 
-![Component Interaction](images/Component_Interaction.png)
+**[SCREENSHOT SUGGESTION: Add a high-level architecture diagram showing these components and their interactions, similar to Figure 1 in the template]**
 
 ### 3.4 System Architecture
 
@@ -158,8 +158,6 @@ EduMate follows a three-tier architecture: a Next.js frontend, a FastAPI backend
 ![Database Schema](images/supabase_database_schema.png)
 
 **Memory Optimization.** Given deployment constraints (Render free tier: 512MB RAM), EduMate implements aggressive memory optimization. The embedding model is lazy-loaded and can be unloaded after use. Quiz generation adapts its RAG retrieval strategy based on current memory usage: using minimal RAG (2 documents, 1500 chars) above 450MB, and normal RAG (3 documents, 3000 chars) below 450MB. Memory tracking decorators monitor usage per feature, enabling proactive optimization.
-
-![Memory Optimization](images/Memory_Optimization.png)
 
 ### 3.5 Core Learning Modules
 
@@ -210,8 +208,6 @@ The `k12_content` table is populated from a JSONL dataset (`data/test.jsonl`) co
 
 When a student asks a question, the system follows this pipeline:
 
-![RAG Pipeline](images/RAG_Pipeline.png)
-
 1. **Query Embedding:** Embeds the query using the same SentenceTransformer model
 2. **Vector Search:** Performs cosine similarity search (`embedding <=> query_embedding::vector`) to retrieve top-k documents
 3. **Context Assembly:** Combines retrieved documents into a context string
@@ -234,8 +230,6 @@ The system uses five grade bands with corresponding adaptation strategies:
 | >12 | Advanced learners, college-level concepts, rigorous proofs |
 
 Grade hints are dynamically inserted into system prompts, guiding the LLM to adjust vocabulary, explanation depth, and mathematical rigor.
-
-![Grade Adaptation](images/Grade_Adaptation.png)
 
 #### 3.6.4 LaTeX Formatting Post-Processing
 
@@ -297,13 +291,7 @@ Each response was scored 0-5 on five criteria:
 
 ### 4.4 User Survey Design
 
-A user survey was conducted to gather feedback on EduMate's usability, effectiveness, and user experience. The survey collected responses from 14 users across various aspects of the system.
-
-**Participant Background.** The survey included a diverse group of 14 participants representing both primary user groups: students and parents. Specifically, the participant pool consisted of 9 students (ranging from elementary to high school grades) and 5 parents who actively use the system to monitor their children's progress. This composition ensured that feedback was gathered from both direct users (students engaging with learning modules) and stakeholders (parents using the dashboard and control features). The students represented various grade levels (grades 3-12), providing perspectives across different developmental stages and mathematical complexity needs. The 5 parent participants were actively engaged in using the parent dashboard features, including progress monitoring, goal setting, and academic integrity controls. This balanced representation allowed us to evaluate both the learning experience from the student perspective and the oversight and control capabilities from the parent perspective.
-
-![Participant Demographics](images/Participant_Demographics.png)
-
-![Participant Demographics](images/Participant_Demographics1.png)
+A user survey was conducted to gather feedback on EduMate's usability, effectiveness, and user experience. The survey collected responses from 5 users across various aspects of the system.
 
 **Survey Dimensions:**
 - Overall ease of use
@@ -316,7 +304,7 @@ A user survey was conducted to gather feedback on EduMate's usability, effective
 - Parent controls ease
 - Math expression clarity
 
-**Response Format:** Users rated each dimension on a scale from "Not Very Well" to "Very Useful/Effective." All participants (both students and parents) were invited to provide feedback on all dimensions to ensure comprehensive evaluation from multiple perspectives.
+**Response Format:** Users rated each dimension on a scale from "Not Very Well" to "Very Useful/Effective."
 
 ### 4.5 System Performance Metrics
 
@@ -373,60 +361,58 @@ Gemini demonstrated strong mathematical accuracy and grade appropriateness but s
 
 Perplexity's responses were mathematically correct but pedagogically inconsistent. The tool frequently included spurious citations for trivial mathematical facts (e.g., citing sources for basic arithmetic), which distracted from learning objectives. Under-answers (single-word responses) and style drift further reduced educational quality and consistency scores.
 
-![Response Comparisons](images/Response_Comparisons.png)
-
 **LaTeX Rendering Quality.** All tools generated LaTeX expressions, but formatting varied. ChatGPT and Gemini produced cleaner LaTeX with proper block/inline distinctions, while Perplexity occasionally mixed formats. EduMate's post-processing pipeline (`format_latex()`) normalizes these variations, ensuring consistent rendering in the frontend KaTeX renderer.
 
 **Quiz Generation Quality.** When prompted to generate quizzes, ChatGPT and Gemini produced well-structured multiple-choice questions with plausible distractors. Perplexity's questions were correct but lacked the misconception-based distractor design that makes quizzes pedagogically valuable. EduMate's quiz generation explicitly instructs the model to create distractors based on common misconceptions, improving learning outcomes.
 
 ### 5.5 User Survey Results
 
-**Table 2.** User survey results summary (N=14).
+**Table 2.** User survey results summary (N=5).
 
 | Metric | Very Useful/Effective | Useful/Effective | Neutral | Not Very Well |
 |--------|----------------------|------------------|---------|---------------|
-| Overall Ease of Use | 9 | 5 | 0 | 0 |
-| Student Dashboard Clarity | 11 | 3 | 0 | 0 |
-| S1 Guidance Usefulness | 7 | 7 | 0 | 0 |
-| S2 Feedback Effectiveness | 3 | 9 | 2 | 0 |
-| S3 Quiz Grade Matching | 4 | 5 | 3 | 2 |
-| Progress Tracking Helpfulness | 6 | 5 | 3 | 0 |
-| Parent Dashboard Usefulness | 5 | 9 | 0 | 0 |
-| Parent Controls Ease | 6 | 8 | 0 | 0 |
-| Math Expression Clarity | 6 | 7 | 1 | 0 |
+| Overall Ease of Use | 3 | 2 | 0 | 0 |
+| Student Dashboard Clarity | 5 | 0 | 0 | 0 |
+| S1 Guidance Usefulness | 1 | 4 | 0 | 0 |
+| S2 Feedback Effectiveness | 1 | 4 | 0 | 0 |
+| S3 Quiz Grade Matching | 1 | 2 | 1 | 1 |
+| Progress Tracking Helpfulness | 2 | 1 | 2 | 0 |
+| Parent Dashboard Usefulness | 1 | 3 | 0 | 0 |
+| Parent Controls Ease | 1 | 4 | 0 | 0 |
+| Math Expression Clarity | 4 | 0 | 1 | 0 |
 
-**Overall Ease of Use.** All respondents rated the system as "Useful" (5 responses) or "Very useful" (9 responses), achieving a 100% positive rating with no neutral or negative responses. This unanimous positive feedback indicates strong overall usability and suggests that the system's interface design, navigation structure, and user experience successfully met user expectations across both student and parent user groups. The achievement of 100% positive ratings can be attributed to several design factors: (1) clear visual hierarchy with distinct module cards (S1, S2, S3) that immediately communicate available learning pathways, (2) intuitive navigation with consistent menu placement and labeling, (3) responsive design that works well across different devices, (4) immediate visual feedback for user actions, and (5) minimal cognitive load through straightforward workflows without unnecessary complexity. The absence of any "Neutral" or "Not Very Well" ratings suggests that even users with varying technical proficiency found the system accessible and easy to use.
+**Overall Ease of Use.** All respondents rated the system as "Useful" (2 responses) or "Very useful" (3 responses), indicating strong overall usability. No respondents found the system difficult to navigate.
 
-**Student Dashboard Clarity.** All 14 respondents rated the Student Dashboard positively, with 11 rating it "Very useful" and 3 rating it "Useful," achieving another 100% positive rating. This unanimous approval demonstrates that the module organization and visual presentation effectively communicate available learning pathways. The dashboard's success in achieving 100% positive ratings can be explained by several design elements: (1) the clear visual separation of the three learning modules (S1, S2, S3) with distinct icons and color coding, (2) the prominent display of grade and topic selectors that make customization immediately apparent, (3) the inclusion of brief module descriptions that help users understand each module's purpose, (4) the consistent layout that reduces learning curve, and (5) the visual design (color scheme, typography, spacing) that respondents specifically praised in open-ended feedback. The fact that all respondents—including both students and parents evaluating the student-facing interface—rated it positively suggests that the dashboard successfully communicates its functionality to diverse audiences.
+**Student Dashboard Clarity.** All 5 respondents rated the Student Dashboard as "Very useful" for showing learning modules (S1, S2, S3), demonstrating that the module organization and visual presentation effectively communicate available learning pathways.
 
 **Module-Specific Feedback:**
-- **S1 (Structured Problem-Solving Practice):** All respondents found the step-by-step guidance "Useful" (7 responses) or "Very useful" (7 responses), confirming the structured approach's effectiveness.
+- **S1 (Structured Problem-Solving Practice):** All respondents found the step-by-step guidance "Useful" (4 responses) or "Very useful" (1 response), confirming the structured approach's effectiveness.
 
 ![S1 Module Feedback](images/S1_Feedback.png)
 
-- **S2 (AI-Powered Solution Feedback):** Feedback effectiveness was rated as "Effective" (9 responses), "Very effective" (3 responses), or "Neutral" (2 responses), showing strong satisfaction with the feedback quality overall.
+- **S2 (AI-Powered Solution Feedback):** Feedback effectiveness was rated as "Effective" (4 responses) or "Very effective" (1 response), showing strong satisfaction with the feedback quality.
 
 ![S2 Module Feedback](images/S2_Feedback.png)
 
-- **S3 (Quiz Generation):** Responses varied from "Not very well" (2 responses) to "Neutral" (3 responses), "Well" (5 responses), and "Very well" (4 responses), indicating room for improvement in quiz difficulty calibration and grade-level matching, though the majority found quizzes well-matched to their needs.
+- **S3 (Quiz Generation):** Responses varied from "Neutral" (1 response) to "Well" (2 responses), and "Very well" (1 response), indicating room for improvement in quiz difficulty calibration and grade-level matching.
 
 ![S3 Module Feedback](images/S3_Feedback.png)
 
-**Progress Tracking.** The progress tracking dashboard was rated as "Helpful" (5 responses), "Neutral" (3 responses), or "Very helpful" (6 responses), suggesting that while useful, the analytics could be enhanced for greater clarity.
+**Progress Tracking.** The progress tracking dashboard was rated as "Helpful" (1 response), "Neutral" (2 responses), or "Very helpful" (2 responses), suggesting that while useful, the analytics could be enhanced for greater clarity.
 
 ![Progress Tracking Feedback](images/progress_Feedback.png)
 
-**Parent Dashboard.** All 14 respondents evaluated the Parent Dashboard features, with all finding it "Useful" (9 responses) or "Very useful" (5 responses), achieving 100% positive ratings. Notably, all 5 parent participants provided feedback on the parent dashboard, with 5 rating it "Very useful" and the remaining 9 responses (from both parents and students who evaluated parent features) rating it "Useful." Learning controls (Direct Answer, Question Generation, etc.) were rated as "Easy" (8 responses) or "Very easy" (6 responses) by all 14 respondents, also achieving 100% positive ratings. This unanimous approval indicates intuitive parent interface design. The 100% positive ratings for parent features can be attributed to: (1) clear labeling of control options with explanatory text that helps parents understand the academic integrity implications, (2) organized control grouping that separates different types of settings (academic integrity, difficulty locks, goal setting), (3) visual indicators (toggles, sliders) that make current settings immediately apparent, (4) the dashboard's comprehensive progress visualization (charts, heatmaps, time tracking) that provides actionable insights, and (5) the exportable progress reports that enable parents to share information with teachers or track progress over time. The fact that all 5 parent participants rated the dashboard positively, along with positive evaluations from students who reviewed parent features, demonstrates that the parent dashboard successfully meets its design goals of providing transparency and control.
+**Parent Dashboard.** All respondents who used the Parent Dashboard found it "Useful" (3 responses) or "Very useful" (1 response). Learning controls (Direct Answer, Question Generation, etc.) were rated as "Easy" (4 responses) or "Very easy" (1 response), indicating intuitive parent interface design.
 
 ![Parent Dashboard Feedback](images/pdboard_Feedback.png)
 
 ![Learning Controls Feedback](images/controls.png)
 
-**Mathematical Expression Clarity.** Thirteen out of fourteen respondents found mathematical expressions "Clear" (7 responses) or "Very clear" (6 responses), with one rating "Neutral," confirming that the LaTeX rendering system effectively displays formulas and equations.
+**Mathematical Expression Clarity.** Four out of five respondents found mathematical expressions "Clear," with one rating "Neutral," confirming that the LaTeX rendering system effectively displays formulas and equations.
 
 ![Mathematical Expression Feedback](images/math_Feedback.png)
 
-**Areas for Improvement.** The most frequently mentioned improvement area was "Load speed of modules" (mentioned in multiple responses). Additional feedback included:
+**Areas for Improvement.** The most frequently mentioned improvement area was "Load speed of modules" (mentioned in 3 out of 5 responses). Additional feedback included:
 - Quiz answers not being visible in some cases
 - Quiz functionality issues requiring fixes
 - Suggestions for inclusion of more subjects and gamification features
@@ -434,9 +420,9 @@ Perplexity's responses were mathematically correct but pedagogically inconsisten
 ![Areas for Improvement](images/improve.png)
 
 **Positive Feedback.** Respondents particularly appreciated:
-- Color scheme and visual design (mentioned by multiple respondents)
-- Navigation menu layout (mentioned by several respondents)
-- Font size and readability (mentioned by respondents)
+- Color scheme and visual design (mentioned by 3 respondents)
+- Navigation menu layout (mentioned by 2 respondents)
+- Font size and readability (mentioned by 1 respondent)
 
 ![Positive Feedback](images/good.png)
 
@@ -483,7 +469,7 @@ Test coverage was to validate core functionality. No critical bugs were discover
 
 ### 6.1 Summary of Findings
 
-This evaluation provides evidence that RAG-enhanced tutoring systems can improve the reliability and pedagogical effectiveness of AI-powered education. The comparative analysis revealed that while baseline AI tools achieve high mathematical accuracy, they show weaknesses in consistency and educational quality that RAG grounding can address. User survey results (N=14, comprising 9 students across grades 3-12 and 5 parents) demonstrate strong usability and effectiveness ratings, with all respondents finding the system "Useful" or "Very useful" for overall ease of use. The achievement of 100% positive ratings on key dimensions (overall ease of use, student dashboard clarity, parent dashboard usefulness) reflects successful design choices including clear visual hierarchy, intuitive navigation, and comprehensive feature organization that meets the needs of both student and parent user groups.
+This evaluation provides evidence that RAG-enhanced tutoring systems can improve the reliability and pedagogical effectiveness of AI-powered education. The comparative analysis revealed that while baseline AI tools achieve high mathematical accuracy, they show weaknesses in consistency and educational quality that RAG grounding can address. User survey results demonstrate strong usability and effectiveness ratings, with all respondents finding the system "Useful" or "Very useful" for overall ease of use.
 
 ### 6.2 Interpretation of Key Findings
 
@@ -492,8 +478,6 @@ This evaluation provides evidence that RAG-enhanced tutoring systems can improve
 The RAG architecture successfully addresses key limitations of baseline AI tools. By grounding responses in a curated K-12 knowledge base, EduMate reduces hallucinations and ensures curriculum alignment. The retrieval step adds minimal latency (15-50ms) while significantly improving response quality, particularly for grade-appropriate explanations and topic-specific content.
 
 The comparative evaluation showed that Perplexity's spurious citations and inconsistent responses highlight the need for retrieval-based grounding. While Perplexity uses citations, it lacks the pedagogical structure and curriculum alignment that EduMate's curated knowledge base provides.
-
-![RAG vs. Non-RAG](images/RAG_Non-RAG.png)
 
 #### 6.2.2 Grade Adaptation Success
 
@@ -547,9 +531,9 @@ The parent dashboard and learning controls were also well-received, with all res
 
 This report presented EduMate, a RAG-powered intelligent tutoring system for K-12 mathematics education. The system successfully combines retrieval-augmented generation with structured learning modules, demonstrating that RAG can enhance the reliability and pedagogical effectiveness of AI tutoring systems.
 
-Key contributions include: (1) a production-ready architecture integrating RAG with multi-module learning workflows, (2) memory-optimized implementation strategies for resource-constrained deployments, (3) grade-adaptive tutoring that automatically adjusts language complexity and explanation depth, (4) comprehensive evaluation comparing baseline AI tools using a rigorous rubric, and (5) user survey results (N=14) showing strong usability and effectiveness ratings.
+Key contributions include: (1) a production-ready architecture integrating RAG with multi-module learning workflows, (2) memory-optimized implementation strategies for resource-constrained deployments, (3) grade-adaptive tutoring that automatically adjusts language complexity and explanation depth, (4) comprehensive evaluation comparing baseline AI tools using a rigorous rubric, and (5) user survey results showing strong usability and effectiveness ratings.
 
-The evaluation revealed that while baseline AI tools achieve high mathematical accuracy, they show weaknesses in consistency and educational quality that RAG grounding can address. User survey results (N=14, comprising 9 students and 5 parents) demonstrate strong usability, with all respondents finding the system "Useful" or "Very useful" for overall ease of use, achieving 100% positive ratings on key usability dimensions. The achievement of unanimous positive feedback can be attributed to design factors including clear visual hierarchy, intuitive navigation, comprehensive module organization, and responsive interface design that successfully serves both student and parent user groups. The memory-adaptive strategies enabled successful deployment on free-tier infrastructure, demonstrating that sophisticated AI tutoring can be deployed cost-effectively.
+The evaluation revealed that while baseline AI tools achieve high mathematical accuracy, they show weaknesses in consistency and educational quality that RAG grounding can address. User survey results demonstrate strong usability, with all respondents finding the system "Useful" or "Very useful" for overall ease of use. The memory-adaptive strategies enabled successful deployment on free-tier infrastructure, demonstrating that sophisticated AI tutoring can be deployed cost-effectively.
 
 As AI continues to transform education, systems like EduMate represent a step toward more reliable, pedagogically sound, and accessible learning tools. By grounding AI in curated knowledge and providing structured learning pathways, we can harness the power of large language models while maintaining the trust and effectiveness required for educational applications.
 
